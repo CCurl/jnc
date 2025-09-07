@@ -1,0 +1,12 @@
+int xxx;
+int Abc[1000000];
+char yyy;
+char Def[256];
+
+def main
+    A = 1 + Abc - 3;
+    B = A * B / C;
+    I=I+1;
+    Y = M * X + B;
+    xxx = A+3+yyy;
+end
