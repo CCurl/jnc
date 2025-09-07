@@ -2,11 +2,13 @@
 
 JNC is a minimal compiler that supports a language inspired by James Newton.<br/>
 It generates assembly code for the FASM assembler.<br/>
+There are 26 built-in "registers", A-Z.<br/>
+Each "register" has a stack associated with it.<br/>
+NOTE: this is a work in progress!<br/>
 
 ### Grammar
 The grammar of language in EBNF is below.<br/>
 NOTE: I am not very familiar with EBNF, so this may not be 100% accurate.
-
 ```
   <program>    ::= <defs>
   <defs>       ::= <defs> <def> | <def>
