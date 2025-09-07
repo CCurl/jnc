@@ -3,10 +3,14 @@ int Abc[1000000];
 char yyy;
 char Def[256];
 
+def sub1
+    Y = M * X + B;
+end
+
 def main
     A = 1 + Abc - 3;
     B = A * B / C;
-    I=I+1;
-    Y = M * X + B;
+    I = I + 1;
+    M=13; X=2; B=100; sub1
     xxx = A+3+yyy;
 end

@@ -1,8 +1,6 @@
-# A minimal and simple compiler for a FASM-based tool chain.
-JN is a minimal compiler that supports a Forth-like syntax.<br/>
-Its initial purpose was to be a pedagogical tool for learning about compilers.<br/>
-It has morphed into a serious attempt at a minimal but useful full-fledged compiler.<br/>
-The compiler currently does a minimal amount of error checking.<br/>
+# FCC - A FASM compiler for a language inspired by James Newton 
+
+JNC is a minimal compiler that supports a language inspired by James Newton.<br/>
 It generates assembly code for the FASM assembler.<br/>
 
 ### Grammar

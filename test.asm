@@ -1,6 +1,13 @@
-; code: 25000 entries, 30 used
+; code: 25000 entries, 39 used
 
-F4: ; main
+F4: ; sub1
+	MOV  EAX, [reg_M]
+	IMUL EAX, [reg_X]
+	ADD  EAX, [reg_B]
+	MOV  [reg_Y], EAX
+	RET
+
+F5: ; main
 	MOV  EAX, 1
 	ADD  EAX, [I1] ; Abc
 	SUB  EAX, 3
@@ -12,23 +19,26 @@ F4: ; main
 	MOV  EAX, [reg_I]
 	ADD  EAX, 1
 	MOV  [reg_I], EAX
-	MOV  EAX, [reg_M]
-	IMUL EAX, [reg_X]
-	ADD  EAX, [reg_B]
-	MOV  [reg_Y], EAX
+	MOV  EAX, 13
+	MOV  [reg_M], EAX
+	MOV  EAX, 2
+	MOV  [reg_X], EAX
+	MOV  EAX, 100
+	MOV  [reg_B], EAX
+	CALL F4 ; sub1
 	MOV  EAX, [reg_A]
 	ADD  EAX, 3
-	ADD  EAX, [I5] ; yyy
+	ADD  EAX, [I6] ; yyy
 	MOV  [I0], EAX; xxx
 	RET
 
-; symbols: 1000 entries, 6 used
+; symbols: 1000 entries, 7 used
 ; ------------------------------------
 I0			rd 1          ; xxx
 I1			rd 1000000    ; Abc
 C2			rb 1          ; yyy
 C3			rb 256        ; Def
-I5			rd 1          ; yyy
+I6			rd 1          ; yyy
 _sps		rd 26
 reg_A		rd 1
 stk_A		rd 32

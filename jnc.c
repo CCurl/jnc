@@ -69,14 +69,10 @@ void next_line() {
     cur_off = 0;
     cur_lnum++;
     if (fgets(cur_line, 256, input_fp) != cur_line) {
+        cur_line[0] = 0;
         is_eof = 1;
     }
-    // int l = strlen(cur_line);
-    // if ((0 < l) && (cur_line[l-1] == 10)) { cur_line[l-1] = 0; }
-    // else { l++; }
-    // printf("\n\t; %s", cur_line);
-    // cur_line[l-1] = 10;
-    // cur_line[l] = 0;
+    // printf("; %s", cur_line);
 }
 
 void next_ch() {
@@ -469,7 +465,7 @@ void intStmt() {
 
 void idStmt() {
     int si = findSymbol(id_name, 'F');
-    if (0 <= si) { g1(IRL_CALL, si); return; }
+    if (0 <= si) { g1(IRL_CALL, si); next_token(); return; }
     if (si < 0) { si = findSymbol(id_name, 'I'); }
     if (si < 0) { si = findSymbol(id_name, 'C'); }
     if (si < 0) { msg(1, "variable not defined!"); }
@@ -528,7 +524,7 @@ void genCode() {
         else if (op == IRL_OP)    { printf("\n; %3d OP    %d", i, a1); }
         else if (op == IRL_LABEL) { printf("\n; %3d LABEL %d", i, a1); }
         else if (op == IRL_FUNC)  { printf("\n\n%s: ; %s", asmName(a1), symName(a1)); }
-        else if (op == IRL_CALL)  { printf("\n; %3d CALL  %s", i, symName(a1)); }
+        else if (op == IRL_CALL)  { printf("\n\tCALL %s ; %s", asmName(a1), symName(a1)); }
         else if (op == IRL_RET)   { printf("\n\tRET"); }
         else if (op == IRL_JMP)   { printf("\n; %3d JMP   %d", i, a1); }
         else if (op == IRL_JMPZ)  { printf("\n; %3d JMPZ  %d", i, a1); }
