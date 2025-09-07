@@ -1,4 +1,15 @@
-; code: 25000 entries, 39 used
+format ELF executable
+;================== code =====================
+segment readable executable
+start:
+	CALL F5
+;================== library ==================
+exit:
+	MOV EAX, 1
+	XOR EBX, EBX
+	INT 0x80
+
+;=============================================; code: 25000 entries, 39 used
 
 F4: ; sub1
 	MOV  EAX, [reg_M]
@@ -32,6 +43,9 @@ F5: ; main
 	MOV  [I0], EAX; xxx
 	RET
 
+;================== data =====================
+segment readable writeable
+;=============================================
 ; symbols: 1000 entries, 7 used
 ; ------------------------------------
 I0			rd 1          ; xxx

@@ -54,10 +54,10 @@ void expr();
 int term();
 
 void msg(int fatal, char *s) {
-    printf("\n%s at(%d, %d)", s, cur_lnum, cur_off);
-    printf("\n%s", cur_line);
-    for (int i = 2; i < cur_off; i++) { printf(" "); } printf("^");
-    if (fatal) { fprintf(stderr, "\n%s (see output for details)\n", s); exit(1); }
+    fprintf(stderr, "\n%s at(%d, %d)", s, cur_lnum, cur_off);
+    fprintf(stderr, "\n%s", cur_line);
+    for (int i = 2; i < cur_off; i++) { fprintf(stderr, " "); } fprintf(stderr, "^\n");
+    if (fatal) { exit(1); }
 }
 void syntax_error() { msg(1, "syntax error"); }
 
@@ -196,8 +196,12 @@ int findSymbol(char *name, char type) {
         SYM_T *x = &symbols[i];
         if (strcmp(x->name, name) == 0) {
             if (x->type == type) { return i; }
-            return -1; // msg(0, "name already defined with different type.", 1, 1);
+            else { return -1; }
+            // char xx[100];
+            // sprintf(xx, "'%s' exists with type '%c', not '%c'.", name, x->type, type);
+            // msg(1, xx);
         }
+
         i=i+1;
     }
     return -1;
@@ -286,76 +290,21 @@ void genCode_NEW() {
 /*---------------------------------------------------------------------------*/
 /* Parser / code generator. */  
 void winLin(int seg) {
-#ifdef _WIN32
-    // Windows (32-bit)
-    if (seg == 'C') {
-        int s = genSymbol("exit", 'F');
-        s = genSymbol("puts", 'F');
-        s = genSymbol("putc", 'F');
-        s = genSymbol("putd", 'F');
-        s = genSymbol("pv", 'I');
-        P("format PE console");
-        P("\ninclude 'win32ax.inc'\n");
-        P("\n; ======================================= ");
-        P("\nsection '.code' code readable executable");
-        P("\n;=======================================*/");
-        P("\n\nstart: JMP main");
-        P("\n;================== library ==================");
-        P("\nexit:\n\tPUSH 0\n\tCALL [ExitProcess]\n");
-        P("\nputs:\n\tcinvoke printf, \"%s\", [pv]");
-        P("\n\tRET\n");
-        P("\nputc:\n\tcinvoke printf, \"%c\", [pv]");
-        P("\n\tRET\n");
-        P("\nputd:\n\tcinvoke printf, \"%d\", [pv]");
-        P("\n\tRET\n");
-        P("\n;=============================================");
-    }
-    else if (seg == 'D') {
-        P("\n\n;================== data =====================");
-        P("\nsection '.data' data readable writeable");
-        P("\n;=============================================");
-    }
-    else if (seg == 'I') {
-        P("\n;====================================");
-        P("\nsection '.idata' import data readable");
-        P("\n; ====================================");
-        P("\nlibrary msvcrt, 'msvcrt.dll', kernel32, 'kernel32.dll'");
-        P("\nimport msvcrt, printf,'printf', getch,'_getch'");
-        P("\nimport kernel32, ExitProcess,'ExitProcess'\n");
-    }
-#else
     // Linux (32-bit)
     if (seg == 'C') {
-        int s = genSymbol("exit", 'F');
-        s = genSymbol("pv", 'I');
-        s = genSymbol("_pc_buf", 'I');
-        P("format ELF executable");
-        P("\n;================== code =====================");
-        P("\nsegment readable executable");
-        P("\nentry main");
-        P("\n;================== library ==================");
-        P("\nexit:\n\tMOV EAX, 1\n\tXOR EBX, EBX\n\tINT 0x80\n");
-        P("\nputs:\n\tMOV [_pc_buf], EAX\n\tRET");
-        P("\nputd:\n\tMOV [_pc_buf], EAX\n\tRET");
-        P("\nputc:\n\tMOV [_pc_buf], EAX");
-        P("\n\tMOV EAX, 4");
-        P("\n\tMOV EBX, 0");
-        P("\n\tLEA ECX, [_pc_buf]");
-        P("\n\tMOV EDX, 1");
-        P("\n\tINT 0x80\n\tRET\n");
-        P("\n;=============================================");
+        printf("format ELF executable");
+        printf("\n;================== code =====================");
+        printf("\nsegment readable executable");
+        printf("\nstart:\n\tCALL %s", asmName(findSymbol("main", 'F')));
+        printf("\n;================== library ==================");
+        printf("\nexit:\n\tMOV EAX, 1\n\tXOR EBX, EBX\n\tINT 0x80\n");
+        printf("\n;=============================================");
     }
     else if (seg == 'D') {
-        P("\n;================== data =====================");
-        P("\nsegment readable writeable");
-        P("\n;=============================================");
+        printf("\n;================== data =====================");
+        printf("\nsegment readable writeable");
+        printf("\n;=============================================");
     }
-    else if (seg == 'I') {
-        // P("\n;================== data =====================");
-        // P("\nsegment readable writeable");
-        // P("\n;=============================================");
-    }
-#endif
 }
 
 char *regName(int regNum) { return regs[regNum]; }
@@ -447,20 +396,6 @@ void returnStmt() {
     }
     expectToken(TOK_SEMI);
     g0(IRL_RET);
-}
-
-void intStmt() {
-    char nm[32];
-    nextShouldBe(TOK_ID);
-    genSymbol(id_name, 'L');
-    strcpy(nm, id_name);
-    next_token();
-    if (tok == TOK_SET) {
-        next_token();
-        expr();
-        g0(IRL_IDSET);
-    }
-    expectToken(TOK_SEMI);
 }
 
 void idStmt() {
@@ -591,8 +526,8 @@ int funcDef() {
 
 int parseDef() {
     if (tok == TOK_DEF) { return funcDef(); }
-    if (tok == INT_TOK) { return varDef('I'); }
-    if (tok == CHAR_TOK) { return varDef('C'); }
+    else if (tok == INT_TOK) { return varDef('I'); }
+    else if (tok == CHAR_TOK) { return varDef('C'); }
     return 0;
 }
 
@@ -605,13 +540,13 @@ int main(int argc, char *argv[]) {
         input_fp = fopen(fn, "rt");
         if (!input_fp) { msg(1, "cannot open source file!"); }
     }
-    // winLin('C');
     next_token();
     while (tok != EOI) { parseDef(); }
     if (input_fp) { fclose(input_fp); }
-    // winLin('D');
+    winLin('C');
     genCode();
+    winLin('D');
     dumpSymbols();
-    // winLin('I');
+    //winLin('I');
     return 0;
 }
