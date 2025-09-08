@@ -1,19 +1,13 @@
-app := tc
-
 ARCH ?= 32
 CXX := clang
 CFLAGS := -m$(ARCH) -O3 -D IS_LINUX
-
-srcfiles := $(shell find . -name "*.c")
-incfiles := $(shell find . -name "*.h")
-LDLIBS   := -lm
 
 # -------------------------------------------------------------------
 # Targets
 # -------------------------------------------------------------------
 
-jnc: jnc.c heap.c heap.h
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o jnc jnc.c heap.c $(LDLIBS)
+jnc: jnc.c
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o jnc jnc.c $(LDLIBS)
 	ls -l jnc
 
 bin: jnc

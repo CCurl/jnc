@@ -8,9 +8,10 @@ def sub1
 end
 
 def main
+    C = 123;
     A = 1 + Abc - 3;
     B = A * B / C;
     I = I + 1;
-    M=13; X=2; B=100; sub1
+    M=13; X=2; B=100; sub1;
     xxx = A+3+yyy;
 end
