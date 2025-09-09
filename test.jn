@@ -14,4 +14,10 @@ def main
     I = I + 1;
     M=13; X=2; B=100; sub1;
     xxx = A+3+yyy;
+    D++;
+    xxx--;
+    X = Y++;
+    Z = Y--;
+    Y = xxx++;
+    Z = xxx--;
 end

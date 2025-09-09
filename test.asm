@@ -43,6 +43,20 @@ F5: ; main
 	ADD  EAX, 3
 	ADD  EAX, [I6] ; yyy
 	MOV  [I0], EAX ; xxx
+	INC  [reg_D]
+	DEC  [I0]
+	MOV  EAX, [reg_Y]
+	INC  [reg_Y]
+	MOV  [reg_X], EAX
+	MOV  EAX, [reg_Y]
+	DEC  [reg_Y]
+	MOV  [reg_Z], EAX
+	MOV  EAX, [I0] ; xxx
+	INC  [I0]
+	MOV  [reg_Y], EAX
+	MOV  EAX, [I0] ; xxx
+	DEC  [I0]
+	MOV  [reg_Z], EAX
 	RET
 ;================== data =====================
 segment readable writeable

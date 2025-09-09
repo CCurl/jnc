@@ -208,7 +208,8 @@ int genTarget() {
 enum {
     NOP, GETIMM, GETREG, GETVAR, SETREG, SETVAR
     , REGA, REGB, REGC, REGD, SYS
-    , ADD, SUB, MUL, DIV, INC, DEC
+    , ADD, SUB, MUL, DIV
+    , INCVAR, DECVAR, INCREG, DECREG
     , LT, GT, EQ, NEQ
     , AND, OR, XOR, NOT
     , DEFUN, TARGET, TEST, JMP, JZ, JNZ, CALL, RET
@@ -274,8 +275,10 @@ void outputCode() {
             BCASE SUB:     printf("\n\tSUB  EAX, "); i = useNext(i);
             BCASE MUL:     printf("\n\tIMUL EAX, "); i = useNext(i);
             BCASE DIV:     printf("\n\tCDQ\n\tIDIV "); i = useNext(i);
-            BCASE INC:     printf("\n\tINC  %s", r1);
-            BCASE DEC:     printf("\n\tDEC  %s", r1);
+            BCASE INCVAR:  printf("\n\tINC  [%s]", s1);
+            BCASE DECVAR:  printf("\n\tDEC  [%s]", s1);
+            BCASE INCREG:  printf("\n\tINC  [reg_%c]", a1+'A');
+            BCASE DECREG:  printf("\n\tDEC  [reg_%c]", a1+'A');
             BCASE DEFUN:   printf("\n\n%s: ; %s", s1, n1);
             BCASE RET:     printf("\n\tRET");
         }
@@ -304,10 +307,12 @@ void outputCode() {
 /*---------------------------------------------------------------------------*/
 /* Parser. */  
 
+int lastTerm; // 1=last was reg, 2=last was var
 int term() {
-    if (tok == TOK_REG)  { g1(GETREG, int_val); return 1; }
-    if (tok == TOK_ID)   { g1(GETVAR,  genSymbol(id_name, 'I')); return 1; }
-    if (tok == TOK_NUM)  { g1(GETIMM, int_val); return 1; }
+    lastTerm = 0;
+    if (tok == TOK_REG) { lastTerm=1; g1(GETREG, int_val); return 1; }
+    if (tok == TOK_ID)  { lastTerm=2; g1(GETVAR, genSymbol(id_name, 'I')); return 1; }
+    if (tok == TOK_NUM) { g1(GETIMM, int_val); return 1; }
     // if (tok == TOK_STR)  { g2(MOVREG, 0, genSymbol(id_name, 'S')); return 1; }
     return 0;
 }
@@ -319,6 +324,7 @@ void next_term() {
 }
 
 int evalOp(int id) {
+    again:
     if (id == TOK_PLUS) { return id; }
     else if (id == TOK_MINUS) { return id; }
     else if (id == TOK_STAR)  { return id; }
@@ -330,6 +336,23 @@ int evalOp(int id) {
     else if (id == TOK_AND)   { return id; }
     else if (id == TOK_OR)    { return id; }
     else if (id == TOK_XOR)   { return id; }
+    else if (0 < lastTerm) {
+        if (lastTerm == 1) {
+            if (tok == TOK_INC) { g1(INCREG, int_val); }
+            else if (tok == TOK_DEC) { g1(DECREG, int_val); }
+            else { return 0; }
+            next_token(); lastTerm=0;
+            goto again;
+        }
+        else if (lastTerm == 2) {
+            int s = arg1[codeSz];
+            if (tok == TOK_INC) { g1(INCVAR, s); }
+            else if (tok == TOK_DEC) { g1(DECVAR, s); }
+            else { return 0; }
+            next_token(); lastTerm=0;
+            goto again;
+        }
+    }
     return 0;
 }
 
@@ -391,8 +414,8 @@ void idStmt() {
     next_token();
     SYM_T *s = &symbols[si];
     if (tok == TOK_SET) { next_token(); expr(); g2(SETVAR, si, 0); }
-    else if (tok == TOK_INC) { next_token(); g1(INC, si); }
-    else if (tok == TOK_DEC) { next_token(); g1(DEC, si); }
+    else if (tok == TOK_INC) { next_token(); g1(INCVAR, si); }
+    else if (tok == TOK_DEC) { next_token(); g1(DECVAR, si); }
     else { syntax_error(); }
     expectToken(TOK_SEMI);
 }
@@ -401,8 +424,8 @@ void regStmt() {
     int regNum = int_val;
     next_token();
     if (tok == TOK_SET) { next_token(); expr(); g2(SETREG, regNum, 0); }
-    // else if (tok == TOK_INC) { next_token(); g1(REGINC, regNum); }
-    // else if (tok == TOK_DEC) { next_token(); g1(REGDEC, regNum); }
+    else if (tok == TOK_INC) { next_token(); g1(INCREG, regNum); }
+    else if (tok == TOK_DEC) { next_token(); g1(DECREG, regNum); }
     else { syntax_error(); }
     expectToken(TOK_SEMI);
 }
