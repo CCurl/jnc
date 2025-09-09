@@ -18,18 +18,20 @@ typedef struct { int op, a1, a2; char *s1, *s2; } INST_T;
 // Tokens - NOTE: the first 8 must match the words list in tc.c
 enum {
     NO_TOK, ELSE_TOK, IF_TOK, WHILE_TOK, VOID_TOK, INT_TOK, CHAR_TOK, RET_TOK
-    , TOK_THEN, TOK_END, TOK_BEGIN, TOK_UNTIL, TOK_AGAIN, TOK_DEF
+    , TOK_THEN, TOK_END, TOK_BEGIN, TOK_UNTIL, TOK_AGAIN, TOK_DEF, TOK_SYS
+    , TOK_AND, TOK_OR, TOK_XOR
     , TOK_LBRA, TOK_RBRA, TOK_LPAR, TOK_RPAR, TOK_LARR, TOK_RARR, TOK_COMMA
     , TOK_PLUS, TOK_MINUS, TOK_STAR, TOK_SLASH, TOK_INC, TOK_DEC, TOK_PLEQ
-    , TOK_LT, TOK_EQ, TOK_GT, TOK_NEQ
+    , TOK_AMP, TOK_LT, TOK_EQ, TOK_GT, TOK_NEQ
     , TOK_SET, TOK_NUM, TOK_ID, TOK_FUNC, TOK_STR, TOK_REG
-    , TOK_OR, TOK_AND, TOK_XOR, TOK_LOR, TOK_LAND
     , TOK_SEMI, EOI
 };
 
 // NOTE: these have to be in sync with the first <x> entries in the list of tokens
 char *words[] = { "", "else", "if" , "while", "void", "int", "char" , "return",
-    "then", "end", "begin", "until", "again", "def", NULL
+    "then", "end", "begin", "until", "again", "def", "sys",
+    "and", "or", "xor",
+    NULL
 };
 
 int ch = 32, tok, int_val, tok_len, hHere = 0, numSymbols = 0;
@@ -107,18 +109,24 @@ void next_token() {
         }
         break;
     case ';': next_ch(); tok = TOK_SEMI;  break;
+    case '&': next_ch(); tok = TOK_AMP;   break;
     case ',': next_ch(); tok = TOK_COMMA; break;
     case '<': next_ch(); tok = TOK_LT;    break;
     case '>': next_ch(); tok = TOK_GT;    break;
-    case '^': next_ch(); tok = TOK_XOR;   break;
     case '=': next_ch(); tok = TOK_SET; cn('=', TOK_EQ); break;
-    case '&': next_ch(); tok = TOK_AND;   break;
-    case '|': next_ch(); tok = TOK_OR;    break;
     case '"': tok = TOK_STR;
         tok_len = 0;
         next_ch();
         while (ch != '"') {
             if (ch == EOF) { syntax_error(); }
+            if (ch  == '\\') { next_ch(); 
+                if (ch == 'n') { ch = 10; } 
+                else if (ch == 't') { ch = 9; } 
+                else if (ch == 'r') { ch = 13; } 
+                else if (ch == '\\') { ch = '\\'; } 
+                else if (ch == '"') { ch = '"'; } 
+                else { syntax_error(); }
+            }
             id_name[tok_len++] = ch;
             next_ch();
         }
@@ -183,11 +191,16 @@ int genSymbol(char *name, char type) {
     if (0 <= i) { return i; }
     i = numSymbols++;
     SYM_T *x = &symbols[i];
-    x->strVal = NULL;
     x->type = type;
-    x->sz = 1;
-    strcpy(x->name, name);
     sprintf(x->asm_name, "%c%d", type, i);
+    x->sz = 1;
+    if (type == 'S') {
+        x->strVal = hAlloc(strlen(name) + 1);
+        strcpy(x->strVal, name);
+        x->sz = strlen(name);
+    } else {
+        strcpy(x->name, name);
+    }
     return i;
 }
 
@@ -202,8 +215,8 @@ int genTarget() {
 // ---------------------------------------------------------------------------
 // Code generation
 enum {
-    NOP, GETIMM, GETREG, GETVAR, SETREG, SETVAR
-    , REGA, REGB, REGC, REGD, SYS
+    NOP, GETIMM, GETREG, GETVAR, ADDROF, SETREG, SETVAR
+    , REGA, REGB, REGC, REGD, SYSCALL
     , ADD, SUB, MUL, DIV
     , INCVAR, DECVAR, INCREG, DECREG
     , LT, GT, EQ, NEQ
@@ -213,12 +226,9 @@ enum {
 
 void optimizeCode() {
     for (int i = 1; i <= codeSz; i++) {
-        int op = code[i];
-        int a1 = arg1[i];
-        int a2 = arg2[i];
+        int op = code[i], a1 = arg1[i], a2 = arg2[i];
         if (op == ADD) { 
-            int nextOp = code[i+1];
-            int nextA1 = arg1[i+1];
+            int nextOp = code[i+1], nextA1 = arg1[i+1], nextA2 = arg2[i+1];
             // if ((nextOp == IRL_LIT) && (nextA1 == 0)) {
             //     irl[i] = IRL_NOP; // no-op
             //     i++;
@@ -269,13 +279,16 @@ emit:
             case  GETIMM:  printf("\n\tMOV  EAX, %d", a1);
             BCASE GETVAR:  printf("\n\tMOV  EAX, [%s] ; %s", s1, n1);
             BCASE GETREG:  printf("\n\tMOV  EAX, [reg_%c]", a1+'A');
+            BCASE ADDROF:  printf("\n\tLEA  EAX, [%s]", s1);
             BCASE SETVAR:  printf("\n\tMOV  [%s], EAX ; %s", s1, n1);
             BCASE SETREG:  printf("\n\tMOV  [reg_%c], EAX", a1+'A');
             BCASE REGA:    printf("\n\tMOV  EAX, [A]");
             BCASE REGB:    printf("\n\tMOV  EBX, [B]");
             BCASE REGC:    printf("\n\tMOV  ECX, [C]");
             BCASE REGD:    printf("\n\tMOV  EDX, [D]");
-            BCASE SYS:     printf("\n\tINT  0x80");
+            BCASE SYSCALL: printf("\n\tMOV  EAX, [reg_A]\n\tMOV  EBX, [reg_B]");
+                           printf("\n\tMOV  ECX, [reg_C]\n\tMOV  EDX, [reg_D]");
+                           printf("\n\tINT  0x80");
             BCASE ADD:     printf("\n\tADD  EAX, "); i = useNext(i);
             BCASE SUB:     printf("\n\tSUB  EAX, "); i = useNext(i);
             BCASE MUL:     printf("\n\tIMUL EAX, "); i = useNext(i);
@@ -303,7 +316,11 @@ emit:
 
     for (int i = 0; i < numSymbols; i++) {
         SYM_T *x = &symbols[i];
-        if (x->type == 'S') { printf("\n%s\t\tdb \"%s\",0 ; %s", x->asm_name, x->strVal, x->name); }
+        if (x->type == 'S') {
+            printf("\n%s\t\t\tdb ", x->asm_name);
+            for (int j = 0; j < x->sz; j++) { printf("%d,", x->strVal[j]); }
+            printf("0");
+        }
     }
     for (int i = 0; i < numSymbols; i++) {
         SYM_T *x = &symbols[i];
@@ -325,7 +342,12 @@ int term() {
     if (tok == TOK_REG) { lastTerm=1; g1(GETREG, int_val); return 1; }
     if (tok == TOK_ID)  { lastTerm=2; g1(GETVAR, genSymbol(id_name, 'I')); return 1; }
     if (tok == TOK_NUM) { g1(GETIMM, int_val); return 1; }
-    // if (tok == TOK_STR)  { g2(MOVREG, 0, genSymbol(id_name, 'S')); return 1; }
+    if (tok == TOK_STR) { g1(ADDROF, genSymbol(id_name, 'S')); return 1; }
+    if (tok == TOK_AMP) {
+        next_token();
+        if (tok == TOK_ID) { g1(ADDROF, genSymbol(id_name, 'C')); return 1; }
+        else { syntax_error(); }
+    }
     return 0;
 }
 
@@ -359,8 +381,7 @@ int evalOp(int id) {
             else { return 0; }
             lastTerm = 0; next_token();
             goto again;
-        }
-        else if (lastTerm == 2) {
+        } else if (lastTerm == 2) {
             int s = arg1[codeSz];
             lastTerm = 0;
             if (tok == TOK_INC) { g1(INCVAR, s); }
@@ -442,7 +463,7 @@ void regStmt() {
     int regNum = int_val;
     next_token();
     DBG("; reg - tok=%d\n", tok);
-    if (tok == TOK_SET) { next_token(); expr(); g2(SETREG, regNum, 0); }
+    if (tok == TOK_SET) { next_token(); expr(); g1(SETREG, regNum); }
     else if (tok == TOK_INC) { next_token(); g1(INCREG, regNum); }
     else if (tok == TOK_DEC) { next_token(); g1(DECREG, regNum); }
     else { syntax_error(); }
@@ -458,6 +479,7 @@ void statements(int endTok) {
         else if (tok == RET_TOK)   { expectNext(TOK_SEMI); g(RET); }
         else if (tok == TOK_ID)    { idStmt(); }
         else if (tok == TOK_REG)   { regStmt(); }
+        else if (tok == TOK_SYS)   { g(SYSCALL); expectNext(TOK_SEMI); }
         else { syntax_error(); }
     }
 }
@@ -495,7 +517,6 @@ int main(int argc, char *argv[]) {
         input_fp = fopen(fn, "rt");
         if (!input_fp) { msg(1, "cannot open source file!"); }
     }
-    // fread(srcBuf, 1, SRC_SZ-1, input_fp);
     next_token();
     while (tok != EOI) {
         if (tok == TOK_DEF) { funcDef(); }

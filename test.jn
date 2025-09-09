@@ -8,9 +8,13 @@ def sub1
 end
 
 def main
-    C = 123;
+    C="hello!"; D=6; A=4; B=0; sys;
+    C = 12;
     A = 1 + Abc - 3;
-    if (C == 0) N=3; return; end
+    if (C == 0)
+        A=4; B=0; C="/0!\n"; D=4; sys;
+        return;
+    end
     B = A * B / C;
     I = I + 1;
     M=13; X=2; B=100; sub1;
@@ -21,6 +25,9 @@ def main
     Z = Y--;
     Y = xxx++;
     Z = xxx--;
-    X = 1000*1000*1000;
+    C = &Def;
+    X = 500*1000*1000;
+    C=" ... "; D=5; A=4; B=0; sys;
     while (X) X--; end
+    C="bye\n"; D=4; A=4; B=0; sys;
 end
