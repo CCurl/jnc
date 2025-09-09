@@ -25,6 +25,14 @@ F5: ; main
 	ADD  EAX, [I1] ; Abc
 	SUB  EAX, 3
 	MOV  [reg_A], EAX
+	MOV  EAX, [reg_C]
+	CMP  EAX, 0
+	CMP  EAX, 0
+	JNZ  T1
+	MOV  EAX, 3
+	MOV  [reg_N], EAX
+	RET
+T1:
 	MOV  EAX, [reg_A]
 	IMUL EAX, [reg_B]
 	CDQ
@@ -39,12 +47,13 @@ F5: ; main
 	MOV  [reg_X], EAX
 	MOV  EAX, 100
 	MOV  [reg_B], EAX
+	CALL F4 ; sub1
 	MOV  EAX, [reg_A]
 	ADD  EAX, 3
-	ADD  EAX, [I6] ; yyy
+	ADD  EAX, [I7] ; yyy
 	MOV  [I0], EAX ; xxx
 	INC  [reg_D]
-	DEC  [I0]
+	DEC  [I0] ; xxx
 	MOV  EAX, [reg_Y]
 	INC  [reg_Y]
 	MOV  [reg_X], EAX
@@ -52,22 +61,33 @@ F5: ; main
 	DEC  [reg_Y]
 	MOV  [reg_Z], EAX
 	MOV  EAX, [I0] ; xxx
-	INC  [I0]
+	INC  [I0] ; xxx
 	MOV  [reg_Y], EAX
 	MOV  EAX, [I0] ; xxx
-	DEC  [I0]
+	DEC  [I0] ; xxx
 	MOV  [reg_Z], EAX
+	MOV  EAX, 1000
+	IMUL EAX, 1000
+	IMUL EAX, 1000
+	MOV  [reg_X], EAX
+T2:
+	MOV  EAX, [reg_X]
+	CMP  EAX, 0
+	JZ   T3
+	DEC  [reg_X]
+	JMP  T2
+T3:
 	RET
 ;================== data =====================
 segment readable writeable
 ;=============================================
-; symbols: 1000 entries, 7 used
+; symbols: 1000 entries, 10 used
 ; ------------------------------------
 I0			rd 1          ; xxx
 I1			rd 1000000    ; Abc
 C2			rb 1          ; yyy
 C3			rb 256        ; Def
-I6			rd 1          ; yyy
+I7			rd 1          ; yyy
 _sps		rd 26
 reg_A		rd 32
 reg_B		rd 32

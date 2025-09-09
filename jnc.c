@@ -7,6 +7,7 @@
 #define SYMBOLS_SZ   1000
 #define CODE_SZ     10000
 #define HEAP_SZ     10000
+#define SRC_SZ      50000
 
 #define BTWI(n,l,h) ((l<=n)&&(n<=h))
 #define BCASE break; case
@@ -37,6 +38,7 @@ int cur_off = 0, cur_lnum = 0, is_eof = 0;
 int code[CODE_SZ], arg1[CODE_SZ], arg2[CODE_SZ], codeSz = 0;
 SYM_T symbols[SYMBOLS_SZ];
 FILE *input_fp = NULL;
+char srcBuf[SRC_SZ];
 
 void statements(int endTok);
 
@@ -82,24 +84,21 @@ void next_ch() {
 
 /*---------------------------------------------------------------------------*/
 /* Lexer */
+void cn(int c, int t) { if (ch == c) { tok = t; next_ch(); } }
+
 void next_token() {
     again:
     while (BTWI(ch,1,32)) { next_ch(); }
     switch (ch) {
-    case EOF: tok = EOI; break;
-    case '{': next_ch(); tok = TOK_LBRA;  break;
-    case '}': next_ch(); tok = TOK_RBRA;  break;
+        case EOF: tok = EOI; break;
+        case '{': next_ch(); tok = TOK_LBRA;  break;
+        case '}': next_ch(); tok = TOK_RBRA;  break;
     case '(': next_ch(); tok = TOK_LPAR;  break;
     case ')': next_ch(); tok = TOK_RPAR;  break;
     case '[': next_ch(); tok = TOK_LARR;  break;
     case ']': next_ch(); tok = TOK_RARR;  break;
-    case '+': next_ch(); tok = TOK_PLUS;
-        if (ch == '+') { next_ch(); tok = TOK_INC; }
-        if (ch == '=') { next_ch(); tok = TOK_PLEQ; }
-        break;
-    case '-': next_ch(); tok = TOK_MINUS;
-        if (ch == '-') { next_ch(); tok = TOK_DEC; }
-        break;
+    case '+': next_ch(); tok = TOK_PLUS;  cn('+', TOK_INC); break;
+    case '-': next_ch(); tok = TOK_MINUS; cn('-', TOK_DEC); break;
     case '*': next_ch(); tok = TOK_STAR;  break;
     case '/': next_ch(); tok = TOK_SLASH;
         if (ch == '/') { // Line comment?
@@ -112,11 +111,9 @@ void next_token() {
     case '<': next_ch(); tok = TOK_LT;    break;
     case '>': next_ch(); tok = TOK_GT;    break;
     case '^': next_ch(); tok = TOK_XOR;   break;
-    case '=': next_ch(); tok = TOK_SET;
-        if (ch == '=') { tok = TOK_EQ; next_ch(); }
-        break;
-    case '|': next_ch(); tok = TOK_OR; break;
-    case '&': next_ch(); tok = TOK_AND; break;
+    case '=': next_ch(); tok = TOK_SET; cn('=', TOK_EQ); break;
+    case '&': next_ch(); tok = TOK_AND;   break;
+    case '|': next_ch(); tok = TOK_OR;    break;
     case '"': tok = TOK_STR;
         tok_len = 0;
         next_ch();
@@ -152,7 +149,6 @@ void next_token() {
             }
         }
         else { syntax_error(); }
-        break;
     }
 }
 
@@ -254,7 +250,16 @@ void outputCode() {
     printf("\n;================== library ==================");
     printf("\nexit:\n\tMOV EAX, 1\n\tXOR EBX, EBX\n\tINT 0x80\n");
     printf("\n;=============================================");
-
+/*
+emit:
+	MOV [reg_A], EAX	; EAX = value
+	mov EAX, 4			; syscall: sys_write
+	mov EBX, 0			; EBX = file handle (0=stdout)
+	lea ECX, [reg_A]	; ECX = address of buffer
+	mov EDX, 1			; EDX = length
+	int 0x80
+	RET
+*/
     for (int i = 1; i <= codeSz; i++) {
         int op = code[i], a1 = arg1[i], a2 = arg2[i];
         char *r1 = regName(a1), *r2 = regName(a2);
@@ -275,12 +280,19 @@ void outputCode() {
             BCASE SUB:     printf("\n\tSUB  EAX, "); i = useNext(i);
             BCASE MUL:     printf("\n\tIMUL EAX, "); i = useNext(i);
             BCASE DIV:     printf("\n\tCDQ\n\tIDIV "); i = useNext(i);
-            BCASE INCVAR:  printf("\n\tINC  [%s]", s1);
-            BCASE DECVAR:  printf("\n\tDEC  [%s]", s1);
+            BCASE EQ:      printf("\n\tCMP  EAX, "); i = useNext(i);
+            BCASE INCVAR:  printf("\n\tINC  [%s] ; %s", s1, n1);
+            BCASE DECVAR:  printf("\n\tDEC  [%s] ; %s", s1, n1);
             BCASE INCREG:  printf("\n\tINC  [reg_%c]", a1+'A');
             BCASE DECREG:  printf("\n\tDEC  [reg_%c]", a1+'A');
             BCASE DEFUN:   printf("\n\n%s: ; %s", s1, n1);
+            BCASE CALL:    printf("\n\tCALL %s ; %s", s1, n1);
             BCASE RET:     printf("\n\tRET");
+            BCASE TARGET:  printf("\n%s:", n1);
+            BCASE TEST:    printf("\n\tCMP  EAX, 0");
+            BCASE JMP:     printf("\n\tJMP  %s", n1);
+            BCASE JZ:      printf("\n\tJZ   %s", n1);
+            BCASE JNZ:     printf("\n\tJNZ  %s", n1);
         }
     }
     printf("\n;================== data =====================");
@@ -323,8 +335,12 @@ void next_term() {
     syntax_error();
 }
 
+// #define DBG(...) printf(__VA_ARGS__)
+#define DBG(...)
+
 int evalOp(int id) {
     again:
+    DBG("; op - tok=%d\n", tok);
     if (id == TOK_PLUS) { return id; }
     else if (id == TOK_MINUS) { return id; }
     else if (id == TOK_STAR)  { return id; }
@@ -341,25 +357,27 @@ int evalOp(int id) {
             if (tok == TOK_INC) { g1(INCREG, int_val); }
             else if (tok == TOK_DEC) { g1(DECREG, int_val); }
             else { return 0; }
-            next_token(); lastTerm=0;
+            lastTerm = 0; next_token();
             goto again;
         }
         else if (lastTerm == 2) {
             int s = arg1[codeSz];
+            lastTerm = 0;
             if (tok == TOK_INC) { g1(INCVAR, s); }
             else if (tok == TOK_DEC) { g1(DECVAR, s); }
             else { return 0; }
-            next_token(); lastTerm=0;
+            lastTerm = 0; next_token();
             goto again;
         }
     }
-    return 0;
+    lastTerm = 0; return 0;
 }
 
 void expr() {
     if (term() == 0) { return; }
     next_token();
     int op = evalOp(tok);
+    DBG("; expr - tok=%d\n", tok);
     while (op != 0) {
         if (op == TOK_PLUS)       { g(ADD);  next_term(); }
         else if (op == TOK_MINUS) { g(SUB);  next_term(); }
@@ -382,10 +400,9 @@ void ifStmt() {
     int t1 = genTarget();
     expectNext(TOK_LPAR);
     expr();
+    DBG("; if - tok=%d\n", tok);
     expectToken(TOK_RPAR);
-    g(TEST);
-    g1(JZ, t1);
-    expectToken(TOK_THEN);
+    g(EQ); g1(GETIMM, 0); g1(JNZ, t1);
     statements(TOK_END);
     expectToken(TOK_END);
     g1(TARGET, t1);
@@ -398,9 +415,10 @@ void whileStmt() {
     expectNext(TOK_LPAR);
     expr();
     expectToken(TOK_RPAR);
-    g2(TEST, 0, 0);
-    g1(JZ, t2);
+    g(EQ); g1(GETIMM, 0); g1(JZ, t2);
+    DBG("; while - tok=%d\n", tok);
     statements(TOK_END);
+    expectToken(TOK_END);
     g1(JMP, t1);
     g1(TARGET, t2);
 }
@@ -423,24 +441,25 @@ void idStmt() {
 void regStmt() {
     int regNum = int_val;
     next_token();
+    DBG("; reg - tok=%d\n", tok);
     if (tok == TOK_SET) { next_token(); expr(); g2(SETREG, regNum, 0); }
     else if (tok == TOK_INC) { next_token(); g1(INCREG, regNum); }
     else if (tok == TOK_DEC) { next_token(); g1(DECREG, regNum); }
     else { syntax_error(); }
     expectToken(TOK_SEMI);
+    DBG("; reg - tok=%d\n", tok);
 }
 
 void statements(int endTok) {
     while (tok != endTok) {
+        DBG("; stmts - tok=%d\n", tok);
         if (tok == IF_TOK)         { ifStmt(); }
         else if (tok == WHILE_TOK) { whileStmt(); }
         else if (tok == RET_TOK)   { expectNext(TOK_SEMI); g(RET); }
         else if (tok == TOK_ID)    { idStmt(); }
         else if (tok == TOK_REG)   { regStmt(); }
+        else { syntax_error(); }
     }
-}
-
-void statement() {
 }
 
 /*---------------------------------------------------------------------------*/
@@ -476,6 +495,7 @@ int main(int argc, char *argv[]) {
         input_fp = fopen(fn, "rt");
         if (!input_fp) { msg(1, "cannot open source file!"); }
     }
+    // fread(srcBuf, 1, SRC_SZ-1, input_fp);
     next_token();
     while (tok != EOI) {
         if (tok == TOK_DEF) { funcDef(); }

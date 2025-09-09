@@ -10,6 +10,7 @@ end
 def main
     C = 123;
     A = 1 + Abc - 3;
+    if (C == 0) N=3; return; end
     B = A * B / C;
     I = I + 1;
     M=13; X=2; B=100; sub1;
@@ -20,4 +21,6 @@ def main
     Z = Y--;
     Y = xxx++;
     Z = xxx--;
+    X = 1000*1000*1000;
+    while (X) X--; end
 end

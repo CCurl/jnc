@@ -14,9 +14,7 @@ bin: jnc
 	cp -u -p jnc ~/bin/
 
 clean:
-	rm -f jnc
-	rm -f test.asm
-	rm -f test
+	rm -f jnc test test.asm
 
 # -------------------------------------------------------------------
 # Scripts
@@ -27,3 +25,4 @@ test: jnc test.jn
 	fasm test.asm test
 	ls -l test
 	chmod +x test
+	./test
