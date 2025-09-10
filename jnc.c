@@ -173,7 +173,13 @@ void nextShouldBe(int exp) { next_token(); tokenShouldBe(exp); }
 void tokenShouldNotBe(int x) { if (tok == x) { syntax_error(); } }
 
 /*---------------------------------------------------------------------------*/
-/* Symbols - 'C' = Char, 'I' = INT,  'F' = Function, 'S' = String, 'T' = Target */
+/* Symbols:
+    'C' = Character,
+    'F' = Function,
+    'I' = Integer,
+    'R' = Register,
+    'S' = String,
+    'T' = Target */
 
 int findSymbol(char *name, char type) {
     for (int i = 0; i < numSymbols; i++) {
@@ -518,6 +524,11 @@ int main(int argc, char *argv[]) {
         input_fp = fopen(fn, "rt");
         if (!input_fp) { msg(1, "cannot open source file!"); }
     }
+    int s = genSymbol("EAX", 'R'); sprintf(symbols[s].asm_name, "EAX");
+    s = genSymbol("EBX", 'R'); sprintf(symbols[s].asm_name, "EBX");
+    s = genSymbol("ECX", 'R'); sprintf(symbols[s].asm_name, "ECX");
+    s = genSymbol("EDX", 'R'); sprintf(symbols[s].asm_name, "EDX");
+
     next_token();
     while (tok != EOI) {
         if (tok == TOK_DEF) { funcDef(); }
