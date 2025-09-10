@@ -238,8 +238,9 @@ void optimizeCode() {
 }
 
 char *regName(int r) {
-    static char buf[4];
-    sprintf(buf, "E%CX", r+'A');
+    static char buf[8];
+    if (BTWI(r, 0, 3)) { sprintf(buf, "E%CX", r+'A'); }
+    else { sprintf(buf, "[reg_%c]", r+'A'); }
     return buf;
 }
 
@@ -282,10 +283,10 @@ emit:
             BCASE ADDROF:  printf("\n\tLEA  EAX, [%s]", s1);
             BCASE SETVAR:  printf("\n\tMOV  [%s], EAX ; %s", s1, n1);
             BCASE SETREG:  printf("\n\tMOV  [reg_%c], EAX", a1+'A');
-            BCASE REGA:    printf("\n\tMOV  EAX, [A]");
-            BCASE REGB:    printf("\n\tMOV  EBX, [B]");
-            BCASE REGC:    printf("\n\tMOV  ECX, [C]");
-            BCASE REGD:    printf("\n\tMOV  EDX, [D]");
+            BCASE REGA:    printf("\n\tMOV  EAX, [reg_A]");
+            BCASE REGB:    printf("\n\tMOV  EBX, [reg_B]");
+            BCASE REGC:    printf("\n\tMOV  ECX, [reg_C]");
+            BCASE REGD:    printf("\n\tMOV  EDX, [reg_D]");
             BCASE SYSCALL: printf("\n\tMOV  EAX, [reg_A]\n\tMOV  EBX, [reg_B]");
                            printf("\n\tMOV  ECX, [reg_C]\n\tMOV  EDX, [reg_D]");
                            printf("\n\tINT  0x80");

@@ -7,6 +7,8 @@ def sub1
     Y = M * X + B;
 end
 
+def Bye A=1; B=0; sys; end
+
 def main
     C="hello!"; D=6; A=4; B=0; sys;
     C = 12;
@@ -26,8 +28,9 @@ def main
     Y = xxx++;
     Z = xxx--;
     C = &Def;
-    X = 500*1000*1000;
     C=" ... "; D=5; A=4; B=0; sys;
-    while (X) X--; end
+    D = 500*1000*1000;
+    // Bye;
+    while (D) D--; end
     C="bye\n"; D=4; A=4; B=0; sys;
 end
