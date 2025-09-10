@@ -2,12 +2,12 @@ int xxx;
 int Abc[1000000];
 char yyy;
 char Def[256];
-
+// int EAX; int EBX; int ECX; int EDX;
 def sub1
     Y = M * X + B;
 end
 
-def Bye A=1; B=0; sys; end
+def Bye A=1; B=0; sys; EDX=17; end
 
 def main
     C="hello!"; D=6; A=4; B=0; sys;
@@ -30,7 +30,6 @@ def main
     C = &Def;
     C=" ... "; D=5; A=4; B=0; sys;
     D = 500*1000*1000;
-    // Bye;
     while (D) D--; end
     C="bye\n"; D=4; A=4; B=0; sys;
 end

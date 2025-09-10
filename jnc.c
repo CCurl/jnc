@@ -12,7 +12,7 @@
 #define BTWI(n,l,h) ((l<=n)&&(n<=h))
 #define BCASE break; case
 
-typedef struct { char type, name[23], asm_name[8], *strVal; int sz; } SYM_T;
+typedef struct { char type, isReg, name[22], asm_name[8], *strVal; int sz; } SYM_T;
 typedef struct { int op, a1, a2; char *s1, *s2; } INST_T;
 
 // Tokens - NOTE: the first 8 must match the words list in tc.c
@@ -176,7 +176,7 @@ void tokenShouldNotBe(int x) { if (tok == x) { syntax_error(); } }
 /* Symbols:
     'C' = Character,
     'F' = Function,
-    'I' = Integer,
+    'I' = Integer (32-bit),
     'R' = Register,
     'S' = String,
     'T' = Target */
@@ -200,6 +200,7 @@ int genSymbol(char *name, char type) {
     x->type = type;
     sprintf(x->asm_name, "%c%d", type, i);
     x->sz = 1;
+    x->isReg = 0;
     if (type == 'S') {
         x->strVal = hAlloc(strlen(name) + 1);
         strcpy(x->strVal, name);
@@ -222,7 +223,7 @@ int genTarget() {
 // Code generation
 enum {
     NOP, GETIMM, GETREG, GETVAR, ADDROF, SETREG, SETVAR
-    , REGA, REGB, REGC, REGD, SYSCALL
+    ,SYSCALL
     , ADD, SUB, MUL, DIV
     , INCVAR, DECVAR, INCREG, DECREG
     , LT, GT, EQ, NEQ
@@ -289,10 +290,6 @@ emit:
             BCASE ADDROF:  printf("\n\tLEA  EAX, [%s]", s1);
             BCASE SETVAR:  printf("\n\tMOV  [%s], EAX ; %s", s1, n1);
             BCASE SETREG:  printf("\n\tMOV  [reg_%c], EAX", a1+'A');
-            BCASE REGA:    printf("\n\tMOV  EAX, [reg_A]");
-            BCASE REGB:    printf("\n\tMOV  EBX, [reg_B]");
-            BCASE REGC:    printf("\n\tMOV  ECX, [reg_C]");
-            BCASE REGD:    printf("\n\tMOV  EDX, [reg_D]");
             BCASE SYSCALL: printf("\n\tMOV  EAX, [reg_A]\n\tMOV  EBX, [reg_B]");
                            printf("\n\tMOV  ECX, [reg_C]\n\tMOV  EDX, [reg_D]");
                            printf("\n\tINT  0x80");
@@ -323,16 +320,16 @@ emit:
 
     for (int i = 0; i < numSymbols; i++) {
         SYM_T *x = &symbols[i];
-        if (x->type == 'S') {
+        if (x->type == 'I') {
+            if (x->isReg) { printf("\n; %s\t\t\trd %-10d ; %s", x->asm_name, x->sz, x->name); }
+            else { printf("\n%s\t\t\trd %-10d ; %s", x->asm_name, x->sz, x->name); }
+        }
+        else if (x->type == 'C') { printf("\n%s\t\t\trb %-10d ; %s", x->asm_name, x->sz, x->name); }
+        else if (x->type == 'S') {
             printf("\n%s\t\t\tdb ", x->asm_name);
             for (int j = 0; j < x->sz; j++) { printf("%d,", x->strVal[j]); }
             printf("0");
         }
-    }
-    for (int i = 0; i < numSymbols; i++) {
-        SYM_T *x = &symbols[i];
-        if (x->type == 'I') { printf("\n%s\t\t\trd %-10d ; %s", x->asm_name, x->sz, x->name); }
-        else if (x->type == 'C') { printf("\n%s\t\t\trb %-10d ; %s", x->asm_name, x->sz, x->name); }
     }
     printf("\n_sps\t\trd 26");
     for (int i = 0; i < 26; i++) {
@@ -524,10 +521,11 @@ int main(int argc, char *argv[]) {
         input_fp = fopen(fn, "rt");
         if (!input_fp) { msg(1, "cannot open source file!"); }
     }
-    int s = genSymbol("EAX", 'R'); sprintf(symbols[s].asm_name, "EAX");
-    s = genSymbol("EBX", 'R'); sprintf(symbols[s].asm_name, "EBX");
-    s = genSymbol("ECX", 'R'); sprintf(symbols[s].asm_name, "ECX");
-    s = genSymbol("EDX", 'R'); sprintf(symbols[s].asm_name, "EDX");
+    SYM_T *s;
+    s = &symbols[genSymbol("EAX", 'I')]; sprintf(s->asm_name, "EAX"); s->isReg=1;
+    s = &symbols[genSymbol("EBX", 'I')]; sprintf(s->asm_name, "EBX"); s->isReg=1;
+    s = &symbols[genSymbol("ECX", 'I')]; sprintf(s->asm_name, "ECX"); s->isReg=1;
+    s = &symbols[genSymbol("EDX", 'I')]; sprintf(s->asm_name, "EDX"); s->isReg=1;
 
     next_token();
     while (tok != EOI) {

@@ -28,6 +28,8 @@ F9: ; Bye
 	MOV  ECX, [reg_C]
 	MOV  EDX, [reg_D]
 	INT  0x80
+	MOV  EAX, 17
+	MOV  [EDX], EAX ; EDX
 	RET
 
 F10: ; main
@@ -147,15 +149,19 @@ segment readable writeable
 ;=============================================
 ; symbols: 1000 entries, 19 used
 ; ------------------------------------
-S11			db 104,101,108,108,111,33,0
-S13			db 47,48,33,10,0
-S15			db 32,46,46,46,32,0
-S18			db 98,121,101,10,0
+; EAX			rd 1          ; EAX
+; EBX			rd 1          ; EBX
+; ECX			rd 1          ; ECX
+; EDX			rd 1          ; EDX
 I4			rd 1          ; xxx
 I5			rd 1000000    ; Abc
 C6			rb 1          ; yyy
 C7			rb 256        ; Def
+S11			db 104,101,108,108,111,33,0
+S13			db 47,48,33,10,0
 I14			rd 1          ; yyy
+S15			db 32,46,46,46,32,0
+S18			db 98,121,101,10,0
 _sps		rd 26
 reg_A		rd 32
 reg_B		rd 32
