@@ -28,7 +28,13 @@ F9: ; Bye
 	MOV  ECX, [reg_C]
 	MOV  EDX, [reg_D]
 	INT  0x80
-	MOV  EAX, 17
+	MOV  EAX, 111
+	MOV  [EAX], EAX ; EAX
+	MOV  EAX, 222
+	MOV  [EBX], EAX ; EBX
+	MOV  EAX, 333
+	MOV  [ECX], EAX ; ECX
+	MOV  EAX, 444
 	MOV  [EDX], EAX ; EDX
 	RET
 

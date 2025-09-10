@@ -7,7 +7,13 @@ def sub1
     Y = M * X + B;
 end
 
-def Bye A=1; B=0; sys; EDX=17; end
+def Bye
+    A=1; B=0; sys;
+    EAX=111;
+    EBX=222;
+    ECX=333;
+    EDX=444;
+end
 
 def main
     C="hello!"; D=6; A=4; B=0; sys;
