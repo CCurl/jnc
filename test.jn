@@ -3,7 +3,7 @@ int Abc[1000000];
 char yyy;
 char Def[256];
 // int EAX; int EBX; int ECX; int EDX;
-def sub1
+def MXB
     Y = M * X + B;
 end
 
@@ -20,12 +20,12 @@ def main
     C = 12;
     A = 1 + Abc - 3;
     if (C == 0)
-        A=4; B=0; C="/0!\n"; D=4; sys;
+        A=4; B=0; C="C==0!\n"; D=6; sys;
         return;
     end
     B = A * B / C;
     I = I + 1;
-    M=13; X=2; B=100; sub1;
+    M=13; X=2; B=100; MXB;
     xxx = A+3+yyy;
     D++;
     xxx--;
