@@ -136,7 +136,7 @@ void next_token() {
     case '\'': next_ch(); int_val = ch; next_ch();
         if (ch == '\'') { next_ch(); tok = TOK_NUM; } else { syntax_error(); }
         break;
-    default:
+        default:
         if (isNum(ch)) {
             int_val = 0; /* missing overflow check */
             while (isNum(ch)) { int_val = int_val  *10 + (ch - '0'); next_ch(); }
