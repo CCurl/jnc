@@ -2,7 +2,7 @@ int xxx;
 int Abc[1000000];
 char yyy;
 char Def[256];
-// int EAX; int EBX; int ECX; int EDX;
+
 def MXB
     Y = M * X + B;
 end
@@ -16,11 +16,11 @@ def Bye
 end
 
 def main
-    C="hello!"; D=6; A=4; B=0; sys;
-    C = 12;
+    A=4; B=0; C="hello!"; D=6; sys;
+    C = 1;
     A = 1 + Abc - 3;
     if (C == 0)
-        A=4; B=0; C="C==0!\n"; D=6; sys;
+        A=4; B=0; C=" C==1!\n"; D=7; sys;
         return;
     end
     B = A * B / C;
@@ -35,7 +35,7 @@ def main
     Z = xxx--;
     C = &Def;
     C=" ... "; D=5; A=4; B=0; sys;
-    D = 500*1000*1000;
-    while (D) D--; end
+    EAX = 1000*1000*1000;
+    while (EAX) EAX--; end
     C="bye\n"; D=4; A=4; B=0; sys;
 end

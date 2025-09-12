@@ -39,9 +39,9 @@ char *words[] = { "", "else", "if" , "while", "void", "int", "char" , "return",
 
 int ch = 32, tok, int_val, tok_len, hHere = 0, numSymbols = 0;
 char id_name[256], cur_line[256] = {0}, heap[HEAP_SZ];
-int cur_off = 0, cur_lnum = 0, is_eof = 0;
-int code[CODE_SZ], arg1[CODE_SZ], arg2[CODE_SZ], codeSz = 0;
+int cur_off = 0, cur_lnum = 0, is_eof = 0, codeSz = 0;
 SYM_T symbols[SYMBOLS_SZ];
+INST_T code[CODE_SZ];
 FILE *input_fp = NULL;
 char srcBuf[SRC_SZ];
 
@@ -63,8 +63,13 @@ int isAlphaNum(int ch) { return isAlpha(ch) || isNum(ch); }
 char *symName(int si) { return symbols[si].name; }
 char *asmName(int si) { return symbols[si].asm_name; }
 char *hAlloc(int sz) { hHere += sz; return &heap[hHere-sz]; }
-int g2(int op, int a, int b) { DBG(";g<%d,%d,%d>\n", op, a, b); code[++codeSz]=op; arg1[codeSz]=a; arg2[codeSz]=b; return codeSz; }
-int g1(int op, int a) { return g2(op, a, 0); }
+int g2(int op, int a1, int a2) {
+    DBG(";g<%d,%d,%d>\n", op, a1, a2);
+    INST_T *x = &code[++codeSz];
+    x->op = op; x->a1 = a1; x->a2 = a2;
+    return codeSz;
+}
+int g1(int op, int a1) { return g2(op, a1, 0); }
 int g(int op) { return g2(op, 0, 0); }
 
 void next_line() {
@@ -223,35 +228,70 @@ char *varName(int si) {
 // ---------------------------------------------------------------------------
 // Code generation
 enum {
-    NOP, GETIMM, GETREG, GETVAR, ADDROF, SETVAR
-    ,SYSCALL
+    NOP, GETIMM, GETREG, GETVAR, ADDROF, SETVAR, SETIMM
+    , SYSCALL
     , ADD, SUB, MUL, DIV
     , INCVAR, DECVAR, INCREG, DECREG
-    , LT, GT, EQ, NEQ
+    , LT, GT, EQU, NEQ, CMP
     , AND, OR, XOR, NOT
     , DEFUN, TARGET, TEST, JMP, JZ, JNZ, CALL, RET
 };
 
-void optimizeCode() {
-    for (int i = 1; i <= codeSz; i++) {
-        int op = code[i], a1 = arg1[i];
-        int nextOp = code[i+1], nextA1 = arg1[i+1];
-        // printf("\n; optimize: %3d: op=%d, a1=%d", i, op, a1);
-        if ((op == GETIMM) && (nextOp == SETVAR)) {
-        }
-        if (op == ADD) { 
-        }
-    }
-    // printf("\n");
+void opArg(INST_T *x, INST_T *y) {
+    x->s1 = hAlloc(16);
+    if (y->op == GETVAR) { sprintf(x->s1, "%s ; %s", varName(y->a1), symName(y->a1)); }
+    if (y->op == GETREG) { sprintf(x->s1, "%s ; %s", varName(y->a1), symName(y->a1)); }
+    if (y->op == GETIMM) { sprintf(x->s1, "%d", y->a1); }
+    x->s1[15]=0; y->op = 999; // Nothing
 }
 
-int useNext(int i) {
-    if (codeSz < i++) { return i; }
-    int op = code[i], a1 = arg1[i]; // , a2 = arg2[i];
-    if (op == GETVAR) { printf("%s ; %s", varName(a1), symName(a1)); }
-    if (op == GETREG) { printf("%s ; %s", varName(a1), symName(a1)); }
-    if (op == GETIMM) { printf("%d", a1); }
-    return i;
+void optimizeCode() {
+    for (int i = 1; i <= codeSz; i++) {
+        INST_T *x = &code[i], *y = &code[i+1];
+        printf("\n; optimize: %3d: op=%d, a1=%d", i, x->op, x->a1);
+        if (x->op == ADD)      { opArg(x, y); }
+        else if (x->op == SUB) { opArg(x, y); }
+        else if (x->op == MUL) { opArg(x, y); }
+        else if (x->op == DIV) { opArg(x, y); }
+        else if (x->op == LT)  { opArg(x, y); }
+        else if (x->op == GT)  { opArg(x, y); }
+        else if (x->op == EQU) { opArg(x, y); }
+        else if (x->op == NEQ) { opArg(x, y); }
+        else if (x->op == AND) { opArg(x, y); }
+        else if (x->op == OR)  { opArg(x, y); }
+        else if (x->op == XOR) { opArg(x, y); }
+        //else if (x->op == CMP) { opArg(x, y); }
+        else if ((x->op == GETIMM) && (y->op == SETVAR)) {
+            x->op = SETIMM; x->a2 = x->a1; x->a1 = y->a1;
+            // printf(" *** GETIMM->SETIMM *** (%d,%d,%d)", x->op, x->a1, x->a2);
+            y->op = 999; // Nothing
+        }
+        else if ((x->op == GETVAR) && (x->a1 == 0)) {x->op = 999; }
+        else if ((x->op == SETVAR) && (x->a1 == 0)) {x->op = 999; }
+        else if ((x->op == EQU) && (y->op == x->op)) {y->op = 999; }
+        else if ((x->op == NEQ) && (y->op == x->op)) {y->op = 999; }
+        else if ((x->op == LT)  && (y->op == x->op)) {y->op = 999; }
+        else if ((x->op == GT)  && (y->op == x->op)) {y->op = 999; }
+    }
+    printf("\n");
+    int nn = 0;
+    for (int i = 1; i <= codeSz; i++) {
+        INST_T *x = &code[i];
+        if (x->op == 999) {
+            ++nn;
+            // for (int j = i; j < codeSz; j++) { code[j] = code[j+1]; }
+            // codeSz--; i--;
+        }
+    }
+    printf("; %d instructions removed\n", nn);
+}
+
+void opCmp(char *op, char *x) {
+    printf("\n\tXOR  EDI, EDI");
+    printf("\n\tCMP  EAX, %s", x);
+    printf("\n\t%s  @F", op);
+    printf("\n\tDEC  EDI");
+    printf("\n@@:\tMOV  EAX, EDI");
 }
 
 void outputCode() {
@@ -273,31 +313,35 @@ emit:
 	RET
 */
     for (int i = 1; i <= codeSz; i++) {
-        int op = code[i], a1 = arg1[i], a2 = arg2[i];
-        char *n1 = symName(a1), *s1 = varName(a1);
-        DBG("\n; gen: %3d: op=%d, a1=%d, s1=%s", i, op, a1, s1);
+        INST_T *x = &code[i];
+        int op = x->op, a1 = x->a1, a2 = x->a2;
+        char *n1 = symName(a1), *v1 = varName(a1);
+        DBG("\n; gen: %3d: op=%d, a1=%d, s1=%s", i, op, a1, v1);
         switch (op) {
             case  GETIMM:  printf("\n\tMOV  EAX, %d", a1);
-            BCASE GETVAR:  printf("\n\tMOV  EAX, %s ; %s", s1, n1);
-            BCASE GETREG:  printf("\n\tMOV  EAX, %s ; %s", s1, n1);
-            BCASE ADDROF:  printf("\n\tLEA  EAX, %s; %d", s1, a1);
-            BCASE SETVAR:  printf("\n\tMOV  %s, EAX ; %s", s1, n1);
+            BCASE GETVAR:  printf("\n\tMOV  EAX, %s ; %s", v1, n1);
+            BCASE GETREG:  printf("\n\tMOV  EAX, %s ; %s", v1, n1);
+            BCASE ADDROF:  printf("\n\tLEA  EAX, %s; %d", v1, a1);
+            BCASE SETVAR:  printf("\n\tMOV  %s, EAX ; %s", v1, n1);
+            BCASE SETIMM:  printf("\n\tMOV  %s, %d ; %s", v1, a2, n1);
             BCASE SYSCALL: printf("\n\tMOV  EAX, %s", varName(findSymbol("A", 'I')));
                            printf("\n\tMOV  EBX, %s", varName(findSymbol("B", 'I')));
                            printf("\n\tMOV  ECX, %s", varName(findSymbol("C", 'I')));
                            printf("\n\tMOV  EDX, %s", varName(findSymbol("D", 'I')));
                            printf("\n\tINT  0x80");
-            BCASE ADD:     printf("\n\tADD  EAX, "); i = useNext(i);
-            BCASE SUB:     printf("\n\tSUB  EAX, "); i = useNext(i);
-            BCASE MUL:     printf("\n\tIMUL EAX, "); i = useNext(i);
-            BCASE DIV:     printf("\n\tCDQ\n\tIDIV "); i = useNext(i);
-            BCASE EQ:      printf("\n\tCMP  EAX, "); i = useNext(i);
-            BCASE INCVAR:  printf("\n\tINC  %s ; %s", s1, n1);
-            BCASE DECVAR:  printf("\n\tDEC  %s ; %s", s1, n1);
-            BCASE INCREG:  printf("\n\tINC  %s ; %s", s1, n1);
-            BCASE DECREG:  printf("\n\tDEC  %s ; %s", s1, n1);
-            BCASE DEFUN:   printf("\n\n%s: ; %s", s1, n1);
-            BCASE CALL:    printf("\n\tCALL %s ; %s", s1, n1);
+            BCASE ADD:     printf("\n\tADD  EAX, %s", x->s1);
+            BCASE SUB:     printf("\n\tSUB  EAX, %s", x->s1);
+            BCASE MUL:     printf("\n\tIMUL EAX, %s", x->s1);
+            BCASE DIV:     printf("\n\tCDQ\n\tIDIV %s", x->s1);
+            // BCASE EQU:     printf("\n\tCMP  EAX, %s", x->s1);
+            BCASE EQU:     opCmp("JE ", x->s1);
+            BCASE CMP:     printf("\n\tCMP  EAX, %d", x->a1);
+            BCASE INCVAR:  printf("\n\tINC  %s ; %s", v1, n1);
+            BCASE DECVAR:  printf("\n\tDEC  %s ; %s", v1, n1);
+            BCASE INCREG:  printf("\n\tINC  %s ; %s", v1, n1);
+            BCASE DECREG:  printf("\n\tDEC  %s ; %s", v1, n1);
+            BCASE DEFUN:   printf("\n\n%s: ; %s", v1, n1);
+            BCASE CALL:    printf("\n\tCALL %s ; %s", v1, n1);
             BCASE RET:     printf("\n\tRET");
             BCASE TARGET:  printf("\n%s:", n1);
             BCASE TEST:    printf("\n\tCMP  EAX, 0");
@@ -372,17 +416,14 @@ int evalOp(int id) {
     else if (id == TOK_AND)   { return id; }
     else if (id == TOK_OR)    { return id; }
     else if (id == TOK_XOR)   { return id; }
-    else if (0 < lastTerm) {
-        if (lastTerm == 2) {
-            int s = arg1[codeSz];
+    else if (lastTerm == 2) {
             lastTerm = 0;
-            if (tok == TOK_INC) { g1(INCVAR, s); }
-            else if (tok == TOK_DEC) { g1(DECVAR, s); }
+            if (tok == TOK_INC) { g1(INCVAR, code[codeSz].a1); }
+            else if (tok == TOK_DEC) { g1(DECVAR, code[codeSz].a1); }
             else { return 0; }
             next_token();
             goto again;
         }
-    }
     lastTerm = 0;
     return 0;
 }
@@ -400,7 +441,7 @@ void expr() {
         else if (op == TOK_SLASH) { g(DIV);  next_term(); }
         else if (op == TOK_LT)    { g(LT);   next_term(); }
         else if (op == TOK_GT)    { g(GT);   next_term(); }
-        else if (op == TOK_EQ)    { g(EQ);   next_term(); }
+        else if (op == TOK_EQ)    { g(EQU);  next_term(); }
         else if (op == TOK_NEQ)   { g(NEQ);  next_term(); }
         else if (op == TOK_AND)   { g(AND);  next_term(); }
         else if (op == TOK_OR)    { g(OR);   next_term(); }
@@ -417,7 +458,7 @@ void ifStmt() {
     expr();
     DBG("; if - tok=%d\n", tok);
     expectToken(TOK_RPAR);
-    g(EQ); g1(GETIMM, 0); g1(JNZ, t1);
+    g1(CMP, 0); g1(JNZ, t1);
     statements(TOK_END);
     expectToken(TOK_END);
     g1(TARGET, t1);
@@ -430,7 +471,7 @@ void whileStmt() {
     expectNext(TOK_LPAR);
     expr();
     expectToken(TOK_RPAR);
-    g(EQ); g1(GETIMM, 0); g1(JZ, t2);
+    g1(CMP, 0); g1(JZ, t2);
     DBG("; while - tok=%d\n", tok);
     statements(TOK_END);
     expectToken(TOK_END);
@@ -487,7 +528,7 @@ void funcDef() {
     next_token();
     statements(TOK_END);
     expectToken(TOK_END);
-    if (code[codeSz] != RET) { g(RET); }
+    if (code[codeSz].op != RET) { g(RET); }
 }
 
 /*---------------------------------------------------------------------------*/
