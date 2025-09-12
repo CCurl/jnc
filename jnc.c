@@ -223,7 +223,7 @@ char *varName(int si) {
 // ---------------------------------------------------------------------------
 // Code generation
 enum {
-    NOP, GETIMM, GETREG, GETVAR, ADDROF, SETREG, SETVAR
+    NOP, GETIMM, GETREG, GETVAR, ADDROF, SETVAR
     ,SYSCALL
     , ADD, SUB, MUL, DIV
     , INCVAR, DECVAR, INCREG, DECREG
@@ -234,15 +234,15 @@ enum {
 
 void optimizeCode() {
     for (int i = 1; i <= codeSz; i++) {
-        int op = code[i], a1 = arg1[i], a2 = arg2[i];
+        int op = code[i], a1 = arg1[i];
+        int nextOp = code[i+1], nextA1 = arg1[i+1];
+        // printf("\n; optimize: %3d: op=%d, a1=%d", i, op, a1);
+        if ((op == GETIMM) && (nextOp == SETVAR)) {
+        }
         if (op == ADD) { 
-            int nextOp = code[i+1], nextA1 = arg1[i+1], nextA2 = arg2[i+1];
-            // if ((nextOp == IRL_LIT) && (nextA1 == 0)) {
-            //     irl[i] = IRL_NOP; // no-op
-            //     i++;
-            // }
         }
     }
+    // printf("\n");
 }
 
 int useNext(int i) {
@@ -282,7 +282,6 @@ emit:
             BCASE GETREG:  printf("\n\tMOV  EAX, %s ; %s", s1, n1);
             BCASE ADDROF:  printf("\n\tLEA  EAX, %s; %d", s1, a1);
             BCASE SETVAR:  printf("\n\tMOV  %s, EAX ; %s", s1, n1);
-            BCASE SETREG:  printf("\n\tMOV  %s, EAX ; %s", s1, n1);
             BCASE SYSCALL: printf("\n\tMOV  EAX, %s", varName(findSymbol("A", 'I')));
                            printf("\n\tMOV  EBX, %s", varName(findSymbol("B", 'I')));
                            printf("\n\tMOV  ECX, %s", varName(findSymbol("C", 'I')));
@@ -501,8 +500,8 @@ int main(int argc, char *argv[]) {
         if (!input_fp) { msg(1, "cannot open source file!"); }
     }
 
-    for (int i = 0; i < 26; i++) { char s[2] = {'A'+i, 0};        genSymbol(s, 'I'); }
     for (int i = 0; i <  4; i++) { char s[4] = {'E','A'+i,'X',0}; genSymbol(s, 'R'); }
+    for (int i = 0; i < 26; i++) { char s[2] = {'A'+i, 0};        genSymbol(s, 'I'); }
 
     next_token();
     while (tok != EOI) {
