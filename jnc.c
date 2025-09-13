@@ -219,7 +219,7 @@ int genTarget() {
 
 char *varName(int si) {
     static char s[16];
-    if (symbols[si].isReg) { return symName(si); }
+    if (symbols[si].isReg) { return asmName(si); }
     if (symbols[si].type == 'F') { return asmName(si); }
     sprintf(s, "[%s]", asmName(si));
     return s;
@@ -542,6 +542,7 @@ int main(int argc, char *argv[]) {
     }
 
     for (int i = 0; i <  4; i++) { char s[4] = {'E','A'+i,'X',0}; genSymbol(s, 'R'); }
+    for (int i = 0; i <  4; i++) { symbols[i].name[0] = 'A'+i; symbols[i].name[1] = 0; }
     for (int i = 0; i < 26; i++) { char s[2] = {'A'+i, 0};        genSymbol(s, 'I'); }
 
     next_token();
