@@ -3,24 +3,35 @@ int Abc[1000000];
 char yyy;
 char Def[256];
 
-def MXB
-    Y = M * X + B;
+// Sets D = the length of C
+def strLen 
+    D=C;
+    while (*D) D++; end
+    D = D-C;
 end
 
-def Bye
-    A=1; B=0; sys;
-    A=111;
-    B=222;
-    C=333;
-    D=444;
+// prints the string at C
+def print strLen; B=0; A=4; sys; end
+
+def Bye A=1; B=0; sys; end
+def MXB Y = M * X + B; end
+
+def BM
+    +L;
+    C = "Start ... "; print;
+    D = 1000*1000*1000;
+    while (D) D--; end
+    C="end\n"; print;
+    -L;
 end
 
 def main
-    B=0; C="hello!"; D=6; A=4; sys;
+    C="hello! "; print;
+    BM;
     C = 1;
     A = 1 + Abc - 3;
     if (C == 0)
-        B=0; C=" C==1!\n"; D=7; A=4; sys;
+        C=" C==0!\n"; print;
         return;
     end
     B = A * B / C;
@@ -34,8 +45,4 @@ def main
     Y = xxx++;
     Z = xxx--;
     C = &Def;
-    C=" ... "; D=5; B=0; A=4; sys;
-    D = 1000*1000*1000;
-    while (D) D--; end
-    C="bye\n"; D=4; B=0; A=4; sys;
 end
