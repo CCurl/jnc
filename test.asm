@@ -1,10 +1,10 @@
 
-; 24 instructions removed
+; 13 instructions removed
 format ELF executable
 ;================== code =====================
 segment readable executable
 start:
-	LEA  EBP, [locals]
+	LEA  EBP, [regs]
 	CALL F41
 ;================== library ==================
 exit:
@@ -15,24 +15,26 @@ exit:
 ;=============================================
 
 F30: ; strLen
-	MOV  EAX, ECX ; C
-	MOV  EDX, EAX ; D
+	MOV  EAX, [EBP+8]
+	MOV  [EBP+12], EAX
 T1:
-	MOVZX  EAX, BYTE [EDX]
-	CMP  EAX, 0
+	MOV  EAX, [EBP+12]
+	CMP  BYTE [EAX], 0
 	JZ   T2
-	INC  EDX ; D
+	INC  DWORD [EBP+12]
 	JMP  T1
 T2:
-	MOV  EAX, EDX ; D
-	SUB  EAX, ECX ; C
-	MOV  EDX, EAX ; D
+	MOV  EAX, [EBP+12]
+	SUB  EAX, DWORD [EBP+8]
+	MOV  [EBP+12], EAX
 	RET
 
 F33: ; print
 	CALL F30 ; strLen
-	MOV  EBX, 0 ; B
-	MOV  EAX, 4 ; A
+	MOV  EAX, 0
+	MOV  [EBP+4], EAX
+	MOV  EAX, 4
+	MOV  [EBP+0], EAX
 	MOV  EAX, EAX
 	MOV  EBX, EBX
 	MOV  ECX, ECX
@@ -41,8 +43,10 @@ F33: ; print
 	RET
 
 F34: ; Bye
-	MOV  EAX, 1 ; A
-	MOV  EBX, 0 ; B
+	MOV  EAX, 1
+	MOV  [EBP+0], EAX
+	MOV  EAX, 0
+	MOV  [EBP+4], EAX
 	MOV  EAX, EAX
 	MOV  EBX, EBX
 	MOV  ECX, ECX
@@ -51,44 +55,46 @@ F34: ; Bye
 	RET
 
 F35: ; MXB
-	MOV  EAX, [I12] ; M
-	IMUL EAX, [I23] ; X
-	ADD  EAX, EBX ; B
-	MOV  [I24], EAX ; Y
+	MOV  EAX, [EBP+48]
+	IMUL EAX, DWORD [EBP+92]
+	ADD  EAX, DWORD [EBP+4]
+	MOV  [EBP+96], EAX
 	RET
 
 F36: ; BM
-	ADD  EBP, 40;
+	ADD  EBP, 104
 	LEA  EAX, [S37]; 37
-	MOV  ECX, EAX ; C
+	MOV  [EBP+8], EAX
 	CALL F33 ; print
 	MOV  EAX, 1000
 	IMUL EAX, 1000
 	IMUL EAX, 1000
-	MOV  EDX, EAX ; D
+	MOV  [EBP+12], EAX
 T3:
-	MOV  EAX, EDX ; D
+	MOV  EAX, [EBP+12]
 	CMP  EAX, 0
 	JZ   T4
-	DEC  EDX ; D
+	DEC  DWORD [EBP+12]
 	JMP  T3
 T4:
 	LEA  EAX, [S40]; 40
-	MOV  ECX, EAX ; C
+	MOV  [EBP+8], EAX
 	CALL F33 ; print
-	SUB  EBP, 40;
+	SUB  EBP, 104
 	RET
 
 F41: ; main
 	LEA  EAX, [S42]; 42
-	MOV  ECX, EAX ; C
+	MOV  [EBP+8], EAX
 	CALL F33 ; print
 	CALL F36 ; BM
-	MOV  ECX, 1 ; C
+	MOV  EAX, 1
+	MOV  [EBP+8], EAX
 	MOV  EAX, 1
 	ADD  EAX, [I27] ; Abc
 	SUB  EAX, 3
-	MOV  EAX, ECX ; C
+	MOV  [EBP+0], EAX
+	MOV  EAX, [EBP+8]
 	XOR  EDI, EDI
 	CMP  EAX, 0
 	JE   @F
@@ -97,40 +103,45 @@ F41: ; main
 	CMP  EAX, 0
 	JNZ  T5
 	LEA  EAX, [S44]; 44
-	MOV  ECX, EAX ; C
+	MOV  [EBP+8], EAX
 	CALL F33 ; print
 	RET
 T5:
-	IMUL EAX, EBX ; B
+	MOV  EAX, [EBP+0]
+	IMUL EAX, DWORD [EBP+4]
 	CDQ
-	IDIV ECX ; C
-	MOV  EBX, EAX ; B
-	MOV  EAX, [I8] ; I
+	IDIV DWORD [EBP+8]
+	MOV  [EBP+4], EAX
+	MOV  EAX, [EBP+32]
 	ADD  EAX, 1
-	MOV  [I8], EAX ; I
-	MOV  [I12], 13 ; M
-	MOV  [I23], 2 ; X
-	MOV  EBX, 100 ; B
+	MOV  [EBP+32], EAX
+	MOV  EAX, 13
+	MOV  [EBP+48], EAX
+	MOV  EAX, 2
+	MOV  [EBP+92], EAX
+	MOV  EAX, 100
+	MOV  [EBP+4], EAX
 	CALL F35 ; MXB
+	MOV  EAX, [EBP+0]
 	ADD  EAX, 3
 	ADD  EAX, [I45] ; yyy
 	MOV  [I26], EAX ; xxx
-	INC  EDX ; D
+	INC  DWORD [EBP+12]
 	DEC  [I26] ; xxx
-	MOV  EAX, [I24] ; Y
-	INC  [I24] ; Y
-	MOV  [I23], EAX ; X
-	MOV  EAX, [I24] ; Y
-	DEC  [I24] ; Y
-	MOV  [I25], EAX ; Z
+	MOV  EAX, [EBP+96]
+	INC  DWORD [EBP+96]
+	MOV  [EBP+92], EAX
+	MOV  EAX, [EBP+96]
+	DEC  DWORD [EBP+96]
+	MOV  [EBP+100], EAX
 	MOV  EAX, [I26] ; xxx
 	INC  [I26] ; xxx
-	MOV  [I24], EAX ; Y
+	MOV  [EBP+96], EAX
 	MOV  EAX, [I26] ; xxx
 	DEC  [I26] ; xxx
-	MOV  [I25], EAX ; Z
+	MOV  [EBP+100], EAX
 	LEA  EAX, [C29]; 29
-	MOV  ECX, EAX ; C
+	MOV  [EBP+8], EAX
 	RET
 ;================== data =====================
 segment readable writeable
@@ -172,31 +183,4 @@ I27			rd 1000000    ; Abc (27)
 C28			rb 1          ; yyy
 C29			rb 256        ; Def
 I45			rd 1          ; yyy (45)
-locals		rd 400
-_sps		rd 26
-reg_A		rd 32
-reg_B		rd 32
-reg_C		rd 32
-reg_D		rd 32
-reg_E		rd 32
-reg_F		rd 32
-reg_G		rd 32
-reg_H		rd 32
-reg_I		rd 32
-reg_J		rd 32
-reg_K		rd 32
-reg_L		rd 32
-reg_M		rd 32
-reg_N		rd 32
-reg_O		rd 32
-reg_P		rd 32
-reg_Q		rd 32
-reg_R		rd 32
-reg_S		rd 32
-reg_T		rd 32
-reg_U		rd 32
-reg_V		rd 32
-reg_W		rd 32
-reg_X		rd 32
-reg_Y		rd 32
-reg_Z		rd 32
+regs		rd 1040

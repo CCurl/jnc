@@ -24,7 +24,7 @@ enum {
     , TOK_AND, TOK_OR, TOK_XOR
     , TOK_LBRA, TOK_RBRA, TOK_LPAR, TOK_RPAR, TOK_LARR, TOK_RARR, TOK_COMMA
     , TOK_PLUS, TOK_MINUS, TOK_STAR, TOK_SLASH, TOK_INC, TOK_DEC, TOK_PLEQ
-    , TOK_AMP, TOK_LT, TOK_EQ, TOK_GT, TOK_NEQ, TOK_LOC, TOK_LOCSA, TOK_LOCSD
+    , TOK_AMP, TOK_LT, TOK_EQ, TOK_GT, TOK_NEQ, TOK_REG, TOK_REGSA, TOK_REGSD
     , TOK_SET, TOK_NUM, TOK_ID, TOK_FUNC, TOK_STR
     , TOK_SEMI, EOI
 };
@@ -78,7 +78,7 @@ void next_line() {
         cur_line[0] = 0;
         is_eof = 1;
     }
-    // printf("; %s", cur_line);
+    DBG("; %s", cur_line);
 }
 
 void next_ch() {
@@ -106,18 +106,11 @@ void next_token() {
     case ')': next_ch(); tok = TOK_RPAR;  break;
     case '[': next_ch(); tok = TOK_LARR;  break;
     case ']': next_ch(); tok = TOK_RARR;  break;
-    case '+': next_ch(); tok = TOK_PLUS; cn('+', TOK_INC);
-        if (tok == TOK_PLUS) { cn('L', TOK_LOCSA); }
-        break;
-    case '-': next_ch(); tok = TOK_MINUS; cn('-', TOK_DEC);
-        if (tok == TOK_MINUS) { cn('L', TOK_LOCSD); }
-        break;
+    case '+': next_ch(); tok = TOK_PLUS;  cn('+', TOK_INC); break;
+    case '-': next_ch(); tok = TOK_MINUS; cn('-', TOK_DEC); break;
     case '*': next_ch(); tok = TOK_STAR;  break;
     case '/': next_ch(); tok = TOK_SLASH;
-        if (ch == '/') { // Line comment?
-            while ((ch) && (ch != 10) && (ch != EOF)) { next_ch(); }
-            goto again;
-        }
+        if (ch == '/') { next_line(); ch=32; goto again; }
         break;
     case ';': next_ch(); tok = TOK_SEMI;  break;
     case '&': next_ch(); tok = TOK_AMP;   break;
@@ -125,6 +118,9 @@ void next_token() {
     case '<': next_ch(); tok = TOK_LT;    break;
     case '>': next_ch(); tok = TOK_GT;    break;
     case '=': next_ch(); tok = TOK_SET; cn('=', TOK_EQ); break;
+    case '^': next_ch(); tok = 0; cn('^', TOK_REGSA);
+        if (tok == 0) { syntax_error(); }
+        break;
     case '"': tok = TOK_STR;
         tok_len = 0;
         next_ch();
@@ -157,13 +153,15 @@ void next_token() {
             while (isAlphaNum(ch)) { id_name[tok_len++] = ch; next_ch(); }
             id_name[tok_len] = '\0';
             tok = 0;
+            DBG("; reg? - tok=%d, id_name=%s, num=%d\n", tok, id_name, int_val);
             while ((words[tok] != NULL) && (strcmp(words[tok], id_name) != 0)) { tok++; }
             if (words[tok] == NULL) {
                 tok = TOK_ID;
-                if ((tok_len == 2) && (id_name[0] == 'L') && BTWI(id_name[1], '0', '9')) {
-                    tok = TOK_LOC;
-                    int_val = id_name[1] - '0';
+                if ((tok_len == 1) && BTWI(id_name[0], 'A', 'Z')) {
+                    tok = TOK_REG;
+                    int_val = id_name[0] - 'A';
                 }
+                if (strcmp(id_name, "vv") == 0) { tok = TOK_REGSD; }
             }
         } else { syntax_error(); }
     }
@@ -236,7 +234,7 @@ char *varName(int si) {
 // Code generation
 enum {
     NOP, GETIMM, SETIMM, ADDROF, VALAT
-    , GETLOC, SETLOC, INCLOC, DECLOC, LOCSA, LOCSD
+    , GETREG, SETREG, INCREG, DECREG, REGSA, REGSD
     , GETVAR, SETVAR, INCVAR, DECVAR
     , SYSCALL
     , ADD, SUB, MUL, DIV
@@ -249,6 +247,7 @@ void opArg(INST_T *x, INST_T *y) {
     x->s1 = hAlloc(16);
     if (y->op == GETVAR) { sprintf(x->s1, "%s ; %s", varName(y->a1), symName(y->a1)); }
     if (y->op == GETIMM) { sprintf(x->s1, "%d", y->a1); }
+    if (y->op == GETREG) { sprintf(x->s1, "DWORD [EBP+%d]", y->a1*4); }
     x->s1[15]=0; y->op = 999; // Nothing
 }
 
@@ -305,7 +304,7 @@ void outputCode() {
     printf("format ELF executable");
     printf("\n;================== code =====================");
     printf("\nsegment readable executable");
-    printf("\nstart:\n\tLEA  EBP, [locals]");
+    printf("\nstart:\n\tLEA  EBP, [regs]");
     printf("\n\tCALL %s", asmName(findSymbol("main", 'F')));
     printf("\n;================== library ==================");
     printf("\nexit:\n\tMOV EAX, 1\n\tXOR EBX, EBX\n\tINT 0x80\n");
@@ -334,10 +333,10 @@ emit:
             BCASE SETVAR:  printf("\n\tMOV  %s, EAX ; %s", v1, n1);
             BCASE INCVAR:  printf("\n\tINC  %s ; %s", v1, n1);
             BCASE DECVAR:  printf("\n\tDEC  %s ; %s", v1, n1);
-            BCASE GETLOC:  printf("\n\tMOV  EAX, [EBP+%d]", a1*4);
-            BCASE SETLOC:  printf("\n\tMOV  [EBP+%d], EAX", a1*4);
-            BCASE INCLOC:  printf("\n\tINC  DWORD [EBP+%d]", a1*4);
-            BCASE DECLOC:  printf("\n\tDEC  DWORD [EBP+%d]", a1*4);
+            BCASE GETREG:  printf("\n\tMOV  EAX, [EBP+%d]", a1*4);
+            BCASE SETREG:  printf("\n\tMOV  [EBP+%d], EAX", a1*4);
+            BCASE INCREG:  printf("\n\tINC  DWORD [EBP+%d]", a1*4);
+            BCASE DECREG:  printf("\n\tDEC  DWORD [EBP+%d]", a1*4);
             BCASE SYSCALL: printf("\n\tMOV  EAX, %s", varName(findSymbol("A", 'I')));
                            printf("\n\tMOV  EBX, %s", varName(findSymbol("B", 'I')));
                            printf("\n\tMOV  ECX, %s", varName(findSymbol("C", 'I')));
@@ -350,8 +349,8 @@ emit:
             BCASE EQU:     opCmp("JE ", x->s1);
             BCASE CMP:     printf("\n\tCMP  EAX, %d", x->a1);
             BCASE DEFUN:   printf("\n\n%s: ; %s", v1, n1);
-            BCASE LOCSA:   printf("\n\tADD  EBP, 40;");
-            BCASE LOCSD:   printf("\n\tSUB  EBP, 40;");
+            BCASE REGSA:   printf("\n\tADD  EBP, %d", 26*4);
+            BCASE REGSD:   printf("\n\tSUB  EBP, %d", 26*4);
             BCASE CALL:    printf("\n\tCALL %s ; %s", v1, n1);
             BCASE RET:     printf("\n\tRET");
             BCASE TARGET:  printf("\n%s:", n1);
@@ -384,22 +383,18 @@ emit:
         }
         else if (x->type == 'C') { printf("\n%s\t\t\trb %-10d ; %s", x->asm_name, x->sz, x->name); }
     }
-    printf("\nlocals\t\trd 400");
-    printf("\n_sps\t\trd 26");
-    for (int i = 0; i < 26; i++) {
-        printf("\nreg_%c\t\trd 32", 'A' + i);
-    }
+    printf("\nregs\t\trd %d", 26*4*10); // 10 sets of 26 32-bit registers
 }
 
 //---------------------------------------------------------------------------
 // Parser.
 
-int lastTerm; // 1=last was loc, 2=var
+int lastTerm; // 1=last was reg, 2=var
 int term() {
     lastTerm = 0;
     if (tok == TOK_ID)  { lastTerm=2; g1(GETVAR, genSymbol(id_name, 'I')); return 1; }
     if (tok == TOK_NUM) { g1(GETIMM, int_val); return 1; }
-    if (tok == TOK_LOC) { lastTerm=1; g1(GETLOC, int_val); return 1; }
+    if (tok == TOK_REG) { lastTerm=1; g1(GETREG, int_val); return 1; }
     if (tok == TOK_STR) { g1(ADDROF, genSymbol(id_name, 'S')); return 1; }
     if (tok == TOK_AMP) {
         nextShouldBe(TOK_ID);
@@ -409,11 +404,21 @@ int term() {
         g1(ADDROF, i); return 1;
     }
     if (tok == TOK_STAR) {
-        nextShouldBe(TOK_ID);
-        int i = findSymbol(id_name, 'C');
-        if (i < 0) { i = findSymbol(id_name, 'I'); }
-        if (i < 0) { msg(1, "variable not defined!"); }
-        g1(VALAT, i); return 1;
+        next_token();
+        if (tok == TOK_REG) {
+            lastTerm=1;
+            g1(GETREG, int_val); return 1;
+        }
+        if (tok == TOK_ID) {
+            lastTerm=2;
+            int i = findSymbol(id_name, 'C');
+            if (i < 0) { i = findSymbol(id_name, 'I'); }
+            if (i < 0) { msg(1, "variable not defined!"); }
+            g1(VALAT, i); return 1;
+        }
+        else {
+            lastTerm=1;
+        }
     }
     return 0;
 }
@@ -440,8 +445,8 @@ int evalOp(int id) {
     else if (id == TOK_XOR)   { return id; }
     else if (lastTerm == 1) {
             lastTerm = 0;
-            if (tok == TOK_INC) { g1(INCLOC, code[codeSz].a1); }
-            else if (tok == TOK_DEC) { g1(DECLOC, code[codeSz].a1); }
+            if (tok == TOK_INC) { g1(INCREG, code[codeSz].a1); }
+            else if (tok == TOK_DEC) { g1(DECREG, code[codeSz].a1); }
             else { return 0; }
             next_token(); goto again;
         }
@@ -523,13 +528,13 @@ void idStmt() {
     expectToken(TOK_SEMI);
 }
 
-void locStmt() {
-    DBG("; loc - tok=%d, id_name=%s, si=%d\n", tok, id_name, si);
-    int locNum = int_val;
+void regStmt() {
+    int regNum = int_val;
+    DBG("; reg - tok=%d, id_name=%s, num=%d\n", tok, id_name, regNum);
     next_token();
-    if (tok == TOK_SET) { next_token(); expr(); g1(SETLOC, locNum); }
-    else if (tok == TOK_INC) { next_token(); g1(INCLOC, locNum); }
-    else if (tok == TOK_DEC) { next_token(); g1(DECLOC, locNum); }
+    if (tok == TOK_SET) { next_token(); expr(); g1(SETREG, regNum); }
+    else if (tok == TOK_INC) { next_token(); g1(INCREG, regNum); }
+    else if (tok == TOK_DEC) { next_token(); g1(DECREG, regNum); }
     else { syntax_error(); }
     expectToken(TOK_SEMI);
 }
@@ -541,10 +546,10 @@ void statements(int endTok) {
         else if (tok == WHILE_TOK) { whileStmt(); }
         else if (tok == RET_TOK)   { expectNext(TOK_SEMI); g(RET); }
         else if (tok == TOK_ID)    { idStmt(); }
-        else if (tok == TOK_LOC)   { locStmt(); }
+        else if (tok == TOK_REG)   { regStmt(); }
         else if (tok == TOK_SYS)   { g(SYSCALL); expectNext(TOK_SEMI); }
-        else if (tok == TOK_LOCSA) { g(LOCSA); expectNext(TOK_SEMI); }
-        else if (tok == TOK_LOCSD) { g(LOCSD); expectNext(TOK_SEMI); }
+        else if (tok == TOK_REGSA) { g(REGSA); expectNext(TOK_SEMI); }
+        else if (tok == TOK_REGSD) { g(REGSD); expectNext(TOK_SEMI); }
         else { syntax_error(); }
     }
 }
