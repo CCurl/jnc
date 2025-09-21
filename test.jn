@@ -1,48 +1,27 @@
-int xxx;
-int Abc[1000000];
-char yyy;
-char Def[256];
+int stk[100];
+char y[256];
+int a;
+int a2;
+char b;
 
-// Sets D = the length of C
-def strLen 
-    D=C;
-    while (*D) D++; end
-    D = D-C;
+def func()
+	L0 = L2 * 3 + L1;
 end
 
-// prints the string at C
-def print strLen; B=0; A=4; sys; end
-
-def Bye A=1; B=0; sys; end
-def MXB Y = M * X + B; end
-
-def BM
-    ^^;
-    C = "Start ... "; print;
-    D = 1000*1000*1000;
-    while (D) D--; end
-    C="end\n"; print;
-    vv;
+def pushA()
+	stk = stk+1; stk[stk] = a;
 end
 
-def main
-    C="hello! "; print;
-    BM;
-    C = 1;
-    A = 1 + Abc - 3;
-    if (C == 0)
-        C=" C==0!\n"; print;
-        return;
-    end
-    B = A * B / C;
-    I = I + 1;
-    M=13; X=2; B=100; MXB;
-    xxx = A+3+yyy;
-    D++;
-    xxx--;
-    X = Y++;
-    Z = Y--;
-    Y = xxx++;
-    Z = xxx--;
-    C = &Def;
+def main()
+	+L; L1=4; L2=5; func(); a=L0; -L;
+	b = a;
+	// [a1] = [a]+456;
+	// [b] = [a1+1];
+	// EAX = 'A';
+	y[a++] = 'a';
+	y[2] = a+223;
+	y[a] = 123;
+	y[a+1] = 0;
+	pushA(); a=a+1; pushA();
+	// b = stk[stk--];
 end
