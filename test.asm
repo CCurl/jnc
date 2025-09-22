@@ -1,4 +1,4 @@
-; 6 instructions removed
+; 0 instructions removed
 format ELF executable
 ;================== code =====================
 segment readable executable
@@ -14,15 +14,34 @@ exit:
 ;=============================================
 
 F9: ; func
+	MOV  EAX, 128
+	PUSH EAX
+	MOV  EAX, 17
+	MOV  ECX, 111
+	MOVZX  EBX, [C5 + ECX] ; y
+	ADD  EAX, EBX
+	POP  ECX
+	MOV  [C5 + ECX], AL ; y
+	MOV  EAX, 77
+	PUSH EAX
+	MOV  EAX, 99
+	MOV  ECX, [I6] ; a
+	MOV  EBX, [I6 + ECX*4] ; a
+	ADD  EAX, EBX
+	POP  ECX
+	MOV  [I6 + ECX*4], EAX ; a
 	MOV  EAX, [EBP+8]
-	IMUL EAX, 3
-	ADD  EAX, [EBP+4]
+	MOV  EBX, 3
+	IMUL EAX, EBX
+	MOV  EBX, [EBP+4]
+	ADD  EAX, EBX
 	MOV  [EBP+0], EAX
 	RET
 
 F10: ; pushA
 	MOV  EAX, [I4] ; stk
-	ADD  EAX, 1
+	MOV  EBX, 1
+	ADD  EAX, EBX
 	MOV  [I4], EAX ; stk
 	MOV  EAX, [I4] ; stk
 	PUSH EAX
@@ -52,7 +71,8 @@ F11: ; main
 	MOV  EAX, 2
 	PUSH EAX
 	MOV  EAX, [I6] ; a
-	ADD  EAX, 223
+	MOV  EBX, 223
+	ADD  EAX, EBX
 	POP  ECX
 	MOV  [C5 + ECX], AL ; y
 	MOV  EAX, [I6] ; a
@@ -61,14 +81,16 @@ F11: ; main
 	POP  ECX
 	MOV  [C5 + ECX], AL ; y
 	MOV  EAX, [I6] ; a
-	ADD  EAX, 1
+	MOV  EBX, 1
+	ADD  EAX, EBX
 	PUSH EAX
-	MOV  EAX, 0
+	MOV  EBX, 0
 	POP  ECX
 	MOV  [C5 + ECX], AL ; y
 	CALL F10 ; pushA
 	MOV  EAX, [I6] ; a
-	ADD  EAX, 1
+	MOV  EBX, 1
+	ADD  EAX, EBX
 	MOV  [I6], EAX ; a
 	CALL F10 ; pushA
 	RET
@@ -80,6 +102,6 @@ segment readable writeable
 I4			rd 100        ; stk (4)
 C5			rb 256        ; y
 I6			rd 1          ; a (6)
-I7			rd 1          ; a2 (7)
+I7			rd 1          ; a1 (7)
 C8			rb 1          ; b
 locals		rd 400

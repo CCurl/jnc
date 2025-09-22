@@ -45,6 +45,7 @@ FILE *input_fp = NULL;
 char srcBuf[SRC_SZ];
 
 void statements(int endTok);
+void expr();
 
 //---------------------------------------------------------------------------
 // Utilities
@@ -78,7 +79,7 @@ void next_line() {
         cur_line[0] = 0;
         is_eof = 1;
     }
-    // printf("; %s", cur_line);
+    DBG("; %s", cur_line);
 }
 
 void next_ch() {
@@ -234,8 +235,8 @@ char *varName(int si) {
 enum {
     NOP, GETIMM, SETIMM, ADDROF, VALAT
     , GETLOC, SETLOC, INCLOC, DECLOC, LOCSA, LOCSD
-    , GETVAR, SETVAR, SETVARC, INCVAR, DECVAR
-    , SYSCALL, MOVAC
+    , GETVAR, GETVARC, SETVAR, SETVARC, INCVAR, DECVAR
+    , SYSCALL, MOVAC, MOVRR
     , ADD, SUB, MUL, DIV
     , LT, GT, EQU, NEQ, CMP
     , AND, OR, XOR, NOT
@@ -246,8 +247,9 @@ enum {
 void opArg(INST_T *x, INST_T *y) {
     x->s1 = hAlloc(16);
     if (y->op == GETVAR) { sprintf(x->s1, "%s ; %s", varName(y->a1), symName(y->a1)); }
-    if (y->op == GETIMM) { sprintf(x->s1, "%d", y->a1); }
-    if (y->op == GETLOC) { sprintf(x->s1, "[EBP+%d]", y->a1*4); }
+    else if (y->op == GETIMM) { sprintf(x->s1, "%d", y->a1); }
+    else if (y->op == GETLOC) { sprintf(x->s1, "[EBP+%d]", y->a1*4); }
+    else { sprintf(x->s1, "EBX"); }
     x->s1[15]=0; y->op = 999; // Nothing
 }
 
@@ -255,29 +257,29 @@ void optimizeCode() {
     for (int i = 1; i <= codeSz; i++) {
         INST_T *x = &code[i], *y = &code[i+1];
         // DBG("\n; optimize: %3d: op=%d, a1=%d", i, x->op, x->a1);
-        if (x->op == ADD)      { opArg(x, y); }
-        else if (x->op == SUB) { opArg(x, y); }
-        else if (x->op == MUL) { opArg(x, y); }
-        else if (x->op == DIV) { opArg(x, y); }
-        else if (x->op == LT)  { opArg(x, y); }
-        else if (x->op == GT)  { opArg(x, y); }
-        else if (x->op == EQU) { opArg(x, y); }
-        else if (x->op == NEQ) { opArg(x, y); }
-        else if (x->op == AND) { opArg(x, y); }
-        else if (x->op == OR)  { opArg(x, y); }
-        else if (x->op == XOR) { opArg(x, y); }
-        //else if (x->op == CMP) { opArg(x, y); }
-        //else if ((x->op == GETIMM) && (y->op == SETVAR)) {
-            // x->op = SETIMM; x->a2 = x->a1; x->a1 = y->a1;
-            // printf(" *** GETIMM->SETIMM *** (%d,%d,%d)", x->op, x->a1, x->a2);
-            // y->op = 999; // Nothing
-        //}
-        else if ((x->op == GETVAR) && (x->a1 == 0)) {x->op = 999; }
+        // if (y->op == ADD)      { opArg(y, x); }
+        // else if (y->op == SUB) { opArg(y, x); }
+        // else if (y->op == MUL) { opArg(y, x); }
+        // else if (y->op == DIV) { opArg(y, x); }
+        // else if (y->op == LT)  { opArg(y, x); }
+        // else if (y->op == GT)  { opArg(y, x); }
+        // else if (y->op == EQU) { opArg(y, x); }
+        // else if (y->op == NEQ) { opArg(y, x); }
+        // else if (y->op == AND) { opArg(y, x); }
+        // else if (y->op == OR)  { opArg(y, x); }
+        // else if (y->op == XOR) { opArg(y, x); }
+        // else if (y->op == CMP) { opArg(y, x); }
+        // else if ((x->op == GETIMM) && (y->op == SETVAR)) {
+        //     x->op = SETIMM; x->a2 = x->a1; x->a1 = y->a1;
+        //     printf(" *** GETIMM->SETIMM *** (%d,%d,%d)", x->op, x->a1, x->a2);
+        //     y->op = 999; // Nothing
+        // }
+        // else if ((x->op == GETVAR) && (x->a1 == 0)) {x->op = 999; }
         // else if ((x->op == SETVAR) && (x->a1 == 0)) {x->op = 999; }
-        else if ((x->op == EQU) && (y->op == x->op)) {y->op = 999; }
-        else if ((x->op == NEQ) && (y->op == x->op)) {y->op = 999; }
-        else if ((x->op == LT)  && (y->op == x->op)) {y->op = 999; }
-        else if ((x->op == GT)  && (y->op == x->op)) {y->op = 999; }
+        // else if ((x->op == EQU) && (y->op == x->op)) {y->op = 999; }
+        // else if ((x->op == NEQ) && (y->op == x->op)) {y->op = 999; }
+        // else if ((x->op == LT)  && (y->op == x->op)) {y->op = 999; }
+        // else if ((x->op == GT)  && (y->op == x->op)) {y->op = 999; }
     }
     int nn = 0;
     for (int i = 1; i <= codeSz; i++) {
@@ -324,18 +326,20 @@ emit:
         char *n1 = symName(a1), *v1 = varName(a1), *as1 = asmName(a1);
         DBG("\n; gen: %3d: op=%d, a1=%d, s1=%s", i, op, a1, v1);
         switch (op) {
-            case  GETIMM:  printf("\n\tMOV  EAX, %d", a1);
+            case  GETIMM:  printf("\n\tMOV  E%cX, %d", a2+'A', a1);
             BCASE SETIMM:  printf("\n\tMOV  %s, %d ; %s", v1, a2, n1);
             BCASE ADDROF:  printf("\n\tLEA  EAX, %s; symbol %d", v1, a1);
             BCASE VALAT:   printf("\n\tMOVZX  EAX, BYTE [%s]", v1);
-            BCASE GETVAR:  printf("\n\tMOV  EAX, %s ; %s", v1, n1);
+            BCASE GETVAR:  printf("\n\tMOV  E%cX, %s ; %s", a2+'A', v1, n1);
             BCASE SETVAR:  printf("\n\tMOV  [%s], %s ; %s",
                                as1, a2==1?"AL":"EAX", n1);
+            BCASE GETVARC: printf("\n\tMOV%s  EBX, [%s + ECX%s] ; %s",
+                               a2==1?"ZX":"", as1, a2==1?"":"*4", n1);
             BCASE SETVARC: printf("\n\tMOV  [%s + ECX%s], %s ; %s",
                                as1, a2==1?"":"*4", a2==1?"AL":"EAX", n1);
             BCASE INCVAR:  printf("\n\tINC  %s ; %s", v1, n1);
             BCASE DECVAR:  printf("\n\tDEC  %s ; %s", v1, n1);
-            BCASE GETLOC:  printf("\n\tMOV  EAX, [EBP+%d]", a1*4);
+            BCASE GETLOC:  printf("\n\tMOV  E%cX, [EBP+%d]", a2+'A', a1*4);
             BCASE SETLOC:  printf("\n\tMOV  [EBP+%d], EAX", a1*4);
             BCASE INCLOC:  printf("\n\tINC  DWORD [EBP+%d]", a1*4);
             BCASE DECLOC:  printf("\n\tDEC  DWORD [EBP+%d]", a1*4);
@@ -344,11 +348,12 @@ emit:
                            printf("\n\tMOV  ECX, %s", varName(findSymbol("C", 'I')));
                            printf("\n\tMOV  EDX, %s", varName(findSymbol("D", 'I')));
                            printf("\n\tINT  0x80");
-            BCASE ADD:     printf("\n\tADD  EAX, %s", x->s1);
+            BCASE ADD:     printf("\n\tADD  EAX, EBX");
             BCASE MOVAC:   printf("\n\tMOV  ECX, EAX");
-            BCASE SUB:     printf("\n\tSUB  EAX, %s", x->s1);
-            BCASE MUL:     printf("\n\tIMUL EAX, %s", x->s1);
-            BCASE DIV:     printf("\n\tCDQ\n\tIDIV %s", x->s1);
+            BCASE MOVRR:   printf("\n\tMOV  E%cX, E%cX", a2+'A', a1+'A');
+            BCASE SUB:     printf("\n\tSUB  EAX, EBX");
+            BCASE MUL:     printf("\n\tIMUL EAX, EBX");
+            BCASE DIV:     printf("\n\tCDQ\n\tIDIV EBX");
             BCASE EQU:     opCmp("JE ", x->s1);
             BCASE CMP:     printf("\n\tCMP  EAX, %d", x->a1);
             BCASE DEFUN:   printf("\n\n%s: ; %s", v1, n1);
@@ -398,13 +403,43 @@ emit:
 //---------------------------------------------------------------------------
 // Parser.
 
+int tgtReg = 0;
+
+void termId() {
+    int si = findSymbol(id_name, 'I');
+    if (si < 0) { si = findSymbol(id_name, 'C'); }
+    if (si < 0) { msg(1, "variable not defined!"); }
+    g2(GETVAR, si, tgtReg);
+    next_token();
+    if (tok == TOK_INC) { g1(INCVAR, si); next_token(); }
+    else if (tok == TOK_DEC) { g1(DECVAR, si); next_token(); }
+    else if (tok == TOK_LARR) {
+        int sz = symbols[si].type == 'C' ? 1 : 4;
+        int curTgt = tgtReg;
+        --codeSz;            // Remove the GETVAR
+        tgtReg = 2;          // Put the index in ECX
+        next_token(); expr();
+        expectToken(TOK_RARR);
+        g2(GETVARC, si, sz); // Set the array element
+        tgtReg = curTgt;
+        if (tgtReg == 0) { g2(MOVRR, 1, 0); }
+    }
+}
+
+void termLocal() {
+    g2(GETLOC, int_val, tgtReg);
+    next_token();
+    if (tok == TOK_INC) { g1(INCLOC, int_val); next_token(); }
+    else if (tok == TOK_DEC) { g1(DECLOC, int_val); next_token(); }
+}
+
 int lastTerm; // 1=last was loc, 2=var
 int term() {
     lastTerm = 0;
-    if (tok == TOK_ID)  { lastTerm=2; g1(GETVAR, genSymbol(id_name, 'I')); return 1; }
-    if (tok == TOK_NUM) { g1(GETIMM, int_val); return 1; }
-    if (tok == TOK_LOC) { lastTerm=1; g1(GETLOC, int_val); return 1; }
-    if (tok == TOK_STR) { g1(ADDROF, genSymbol(id_name, 'S')); return 1; }
+    if (tok == TOK_ID)  { termId();  return 1; }
+    if (tok == TOK_NUM) { g2(GETIMM, int_val, tgtReg); next_token(); return 1; }
+    if (tok == TOK_LOC) { termLocal(); return 1; }
+    if (tok == TOK_STR) { g1(ADDROF, genSymbol(id_name, 'S')); next_token(); return 1; }
     if (tok == TOK_AMP) {
         nextShouldBe(TOK_ID);
         int i = findSymbol(id_name, 'C');
@@ -423,13 +458,13 @@ int term() {
 }
 
 void next_term() {
+    tgtReg = 1;
     next_token();
     if (term()) { return; }
     syntax_error();
 }
 
 int evalOp(int id) {
-    again:
     DBG("; op - tok=%d\n", tok);
     if (id == TOK_PLUS) { return id; }
     else if (id == TOK_MINUS) { return id; }
@@ -442,44 +477,28 @@ int evalOp(int id) {
     else if (id == TOK_AND)   { return id; }
     else if (id == TOK_OR)    { return id; }
     else if (id == TOK_XOR)   { return id; }
-    else if (lastTerm == 1) {
-            lastTerm = 0;
-            if (tok == TOK_INC) { g1(INCLOC, code[codeSz].a1); }
-            else if (tok == TOK_DEC) { g1(DECLOC, code[codeSz].a1); }
-            else { return 0; }
-            next_token(); goto again;
-        }
-    else if (lastTerm == 2) {
-            lastTerm = 0;
-            if (tok == TOK_INC) { g1(INCVAR, code[codeSz].a1); }
-            else if (tok == TOK_DEC) { g1(DECVAR, code[codeSz].a1); }
-            else { return 0; }
-            next_token(); goto again;
-        }
-    lastTerm = 0;
     return 0;
 }
 
 void expr() {
     if (term() == 0) { return; }
     DBG("; expr - tok=%d\n", tok);
-    next_token();
     int op = evalOp(tok);
     DBG("; expr - op=%d\n", op);
     while (op != 0) {
-        if (op == TOK_PLUS)       { g(ADD);  next_term(); }
-        else if (op == TOK_MINUS) { g(SUB);  next_term(); }
-        else if (op == TOK_STAR)  { g(MUL);  next_term(); }
-        else if (op == TOK_SLASH) { g(DIV);  next_term(); }
-        else if (op == TOK_LT)    { g(LT);   next_term(); }
-        else if (op == TOK_GT)    { g(GT);   next_term(); }
-        else if (op == TOK_EQ)    { g(EQU);  next_term(); }
-        else if (op == TOK_NEQ)   { g(NEQ);  next_term(); }
-        else if (op == TOK_AND)   { g(AND);  next_term(); }
-        else if (op == TOK_OR)    { g(OR);   next_term(); }
-        else if (op == TOK_XOR)   { g(XOR);  next_term(); }
+        if (op == TOK_PLUS)       { next_term(); g(ADD);  }
+        else if (op == TOK_MINUS) { next_term(); g(SUB);  }
+        else if (op == TOK_STAR)  { next_term(); g(MUL);  }
+        else if (op == TOK_SLASH) { next_term(); g(DIV);  }
+        else if (op == TOK_LT)    { next_term(); g(LT);   }
+        else if (op == TOK_GT)    { next_term(); g(GT);   }
+        else if (op == TOK_EQ)    { next_term(); g(EQU);  }
+        else if (op == TOK_NEQ)   { next_term(); g(NEQ);  }
+        else if (op == TOK_AND)   { next_term(); g(AND);  }
+        else if (op == TOK_OR)    { next_term(); g(OR);   }
+        else if (op == TOK_XOR)   { next_term(); g(XOR);  }
         else { syntax_error(); }
-        next_token();
+        // next_token();
         op = evalOp(tok);
     }
 }
@@ -541,7 +560,7 @@ void idStmt() {
 }
 
 void locStmt() {
-    DBG("; loc - tok=%d, id_name=%s, si=%d\n", tok, id_name, si);
+    DBG("; loc - tok=%d, id_name=%s\n", tok, id_name);
     int locNum = int_val;
     next_token();
     if (tok == TOK_SET) { next_token(); expr(); g1(SETLOC, locNum); }
@@ -553,6 +572,7 @@ void locStmt() {
 
 void statements(int endTok) {
     while (tok != endTok) {
+        tgtReg = 0;
         DBG("; stmts - tok=%d\n", tok);
         if (tok == IF_TOK)         { ifStmt(); }
         else if (tok == WHILE_TOK) { whileStmt(); }
